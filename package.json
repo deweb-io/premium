@@ -1,0 +1,58 @@
+{
+  "name": "videbate",
+  "version": "0.0.1",
+  "description": "A plugin for video debates over the BBS core-UI",
+  "exports": {
+    "./": "./src/"
+  },
+  "scripts": {
+    "refresh-db": "node -e '(async() => {await require(\"./src/db.cjs\").refreshDatabase(); process.exit(0);})()'",
+    "lint": "npx eslint ./src/*.cjs ./deployment/*.cjs ./site/*.js",
+    "test": "npx mocha --exit ./src/test.cjs",
+    "coverage": "npx c8 --100 --exclude src/test.cjs npm run test",
+    "serve": "npx fastify start ./src/routes.cjs",
+    "start": "npm run lint && npm run coverage && npm run serve",
+    "dev": "sh -c 'FASTIFY_LOG_LEVEL=debug FASTIFY_WATCH=true FASTIFY_SWAGGER=true npm run serve'"
+  },
+  "engines": {
+    "node": "18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deweb-io/videbate.git"
+  },
+  "keywords": [
+    "BBS",
+    "message-board",
+    "social",
+    "video",
+    "debate"
+  ],
+  "author": "Israel Levin",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/deweb-io/videbate/issues"
+  },
+  "homepage": "https://github.com/deweb-io/videbate#readme",
+  "private": false,
+  "dependencies": {
+    "@dewebio/bbs-common": "^1.0.7",
+    "@google-cloud/storage": "^6.9.0",
+    "dotenv": "^16.0.3",
+    "fastify": "^4.11.0",
+    "fastify-cli": "^5.7.1",
+    "fastify-multer": "^2.0.3",
+    "postgres": "^3.3.3"
+  },
+  "devDependencies": {
+    "@fastify/swagger": "^8.3.0",
+    "@fastify/swagger-ui": "^1.3.0",
+    "c8": "^7.12.0",
+    "chai": "^4.3.7",
+    "eslint": "^8.32.0",
+    "eslint-config-google": "^0.14.0",
+    "eslint-plugin-import": "^2.27.5",
+    "form-data": "^4.0.0",
+    "mocha": "^10.2.0"
+  }
+}

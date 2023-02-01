@@ -1,0 +1,5 @@
+.env
+/.nyc_output/
+/coverage/
+/deployment/google-cloud-sdk/
+/node_modules/

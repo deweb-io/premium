@@ -1,0 +1,12 @@
+video {
+    border: 10px solid green;
+}
+
+video.full {
+    border: 0;
+    position: fixed;
+    top: 0;
+    right: 0;
+    min-width: 100%;
+    z-index: -100;
+}

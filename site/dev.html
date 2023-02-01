@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Videbate</title>
+    <link rel="stylesheet" href="/site/style.css">
+</head>
+<body>
+    <div id="videbate"></div>
+    <div id="control">
+        <input type="text" id="postId" placeholder="post ID">
+        <button id="show">show</button>
+    </div>
+    <script type="module">
+        const core = {
+            navigateToPost: (postId) => {
+                location.hash = postId;
+            }
+        };
+
+        // Should probably be done with AMD, like Single SPA does, and use all lifecycle hooks.
+        import {mount} from '/site/videbate.js';
+        document.getElementById('show').addEventListener('click', async() => {
+            const postId = document.getElementById('postId').value;
+            core.navigateToPost(postId);
+            await mount(document.getElementById('videbate'), core);
+        });
+    </script>
+</body>
+</html>
