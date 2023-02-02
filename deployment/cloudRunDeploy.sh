@@ -33,8 +33,8 @@ EOF
 # Set working project.
 "$GCP_CLI" config set project "$deploy_env"
 # Upload docker image.
-"$GCP_CLI" builds submit --tag gcr.io/$deploy_env/videbate
+"$GCP_CLI" builds submit --tag gcr.io/$deploy_env/premium
 # Deploy to Cloud Run.
-"$GCP_CLI" beta run deploy --image gcr.io/$deploy_env/videbate --platform managed
+"$GCP_CLI" beta run deploy --image gcr.io/$deploy_env/premium --platform managed
 
 rm Dockerfile
