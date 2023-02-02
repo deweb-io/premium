@@ -1,53 +1,29 @@
 # Premium
 
-A BBS core UI plugin to handle premium content.
+A BBS Core-UI plugin to handle premium content.
 
-## Medusa
+## BBS Core-UI Integration
 
-The premium operator operates a [Medusa](https://github.com/medusajs/medusa) server with [Medusa Extender](https://github.com/adrien2p/medusa-extender) and [Medusa Marketplace Plugin](https://github.com/shahednasser/medusa-marketplace). This allows the premium operator to run an independent store front (we can build our own, but Medusa offers several FLOSS options, like [nexjs-starter](https://github.com/medusajs/nextjs-starter-medusa)) with any chosen payment system (e.g. Stripe with the [medusa-payment-stripe](https://github.com/medusajs/medusa/tree/master/packages/medusa-payment-stripe) module). All this goodness is probably best stuffed into a docker image and deployed on Cloud Run.
+The Premium integration should work similarly to youtube video embedding, in that the posting user is expected to upload the premium digital asset from an independent domain and frontend, and insert the obtained link into a post. The only interaction between the Core-UI and the Premium service occurs when viewing posts that contain such links.
 
-### Medusa BBS Integration
-
-Hopefully, we will need a very small adaptation to the above code in order to work with BBS, but we still don't know what will be the permission scheme. In the optimal scenario, the core operator will handle permissions, and pass the premium operator a signed JWT which will be respected by Medusa.
-
-## BBS Core UI Integration
-
-For this we will pretty much do what we did for [Videbate](https://github.com/deweb-io/videbate). In fact, we will merge Videbate into this repo, in a killer merge of *unrelated histories*! Doesn't that sound exhilarating?
-
-Here starts the Videbate README:
-
-# Video Debate Plugin
-
-This is a plugin to the BBS core-UI, exploring a new way to render video posts and navigate between them.
-
-* A video debate starts with a challenge, which is a video post that challenges other users to respond to it.
-* Challenges can be responded to with another video post, debating with the first.
-* Responses can also be responded to, thus creating a threaded video debate.
-
-The plugin has two points of interface with the BBS core-UI:
-
-* When publishing/editing a new video post, the user can mark is a videbate challenge
-* When viewing a video debate post, the videbate UI is loaded into the post page, replacing the video block and governing not only the look and feel of the post, but also the progression of the user between posts.
+For this purpose the Premium service will expose the following endpoints:
+* `GET:/health` - checks if everything is fine and dandy, so the Core-UI can disable the plugin if the service is unhealthy, and even notify the user)
+* `GET:/view/:asset-ID` - returns a preview image (in the future may also return other file types), so the Core-UI can display it in post lists and such
+* `POST:/view/:asset-ID` - returns a Single SPA compatible JS package with a deployable interface for viewing the asset (this allows for seamless integration with the Core-UI Web app, and the mobile UI simply opens an iframe with the Web app)
 
 ## Operation
 
-We run a small fastify server with the following endpoints:
-* `GET:/health` - checks if everythin is fine and dandy, for monitoring
-* `POST:/new` - creates a new post in the vidibate database with a given ID, returning some meta-data to be embedded in the post.
-* `POST:/show` - returns HTML UI for viewing the post with the given ID.
-* `GET:/show/:postId` - same as above, mostly for testing.
-* `GET:/site/:file` - serve static files from the `site` directory, setting MIME type according to extension.
+The Premium operator operates a [Medusa](https://github.com/medusajs/medusa) server with [Medusa Extender](https://github.com/adrien2p/medusa-extender) and [Medusa Marketplace Plugin](https://github.com/shahednasser/medusa-marketplace). This allows the Premium operator to run an independent store front (we can build our own, but Medusa offers several FLOSS options, like [nexjs-starter](https://github.com/medusajs/nextjs-starter-medusa)) with any chosen payment system (e.g. Stripe with the [medusa-payment-stripe](https://github.com/medusajs/medusa/tree/master/packages/medusa-payment-stripe) module) and on any chosen storage infrastructure (for us it's [medusa-file-gcp](https://github.com/kingwill101/medusa-file-gcp)). All this goodness is probably best stuffed into a docker image and deployed on Cloud Run.
 
-In the future, it will also serve the viewer as a Single SPA package, for more "native" integration with the BBS Web core-UI. In the more further future it may serve plugins for the BBS mobile core-UI.
+Hopefully, we will need a very small adaptation to the above in order to work with BBS, but we still don't know what will be the permission scheme. In the optimal scenario, the Core operator will handle permissions, and we will end up with a signed JWT that we can configure (or modify) Medusa to respect.
+
+In addition, we will use the same RDBMS as Medusa (postgres) to preserve some BI data, just to show that we can.
 
 ## BBS Network Integration
 
+We don't have any meaningful integrations with the network at this moment, but we are desperate to show how it's done, so in the above BI data will incorporate some BBS data. We will start with something symbolic, like the number of comments and upvotes on the post with the asset that is being viewed.
+
 We use the [bbs-common library](https://github.com/deweb-io/bbs-common/), available on npm. By default, we use the latest version from [jsdelivr](https://cdn.jsdelivr.net/npm/@dewebio/bbs-common@1.0.7/index.min.js). For convenience, you can keep your own version on `site/bbs-common.js` and it will be used instead.
-
-## Requirements
-
-* Node 18
-* Postgres 15
 
 ## Running Locally
 
@@ -56,8 +32,6 @@ Create an `.env` file with some basic params:
 * `FASTIFY_ADDRESS`  - Host to serve from (defaults to 127.0.0.1)
 * `FASTIFY_PORT`     - Port to serve from (defaults to 8000)
 * `FASTIFY_SWAGGER`  - Serve swagger-UI from `/doc` (defaults to false)
-* `GCP_PROJECT_ID`   - GCP project name for video file storage (no default - required)
-* `GCP_BUCKET_NAME`  - GCP bucket name for video file storage (no default - required)
 * `PGHOST`           - Postgres host (defaults to localhost)
 * `PGPORT`           - Postgres port (defualts to 5432)
 * `PGDATABASE`       - Postgres database (schema) name (defaults to postgres)
