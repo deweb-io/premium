@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Premium Service Testing</title>
+</head>
+<body>
+    <div id="premium"></div>
+    <div id="control">
+        <button id="show">show</button>
+    </div>
+    <script type="module">
+        // Should probably be done with AMD, like Single SPA does, and use all lifecycle hooks.
+        import {mount} from '/site/premium.js';
+        document.getElementById('show').addEventListener('click', async() => {
+            await mount(document.getElementById('premium'));
+        });
+    </script>
+</body>
+</html>
