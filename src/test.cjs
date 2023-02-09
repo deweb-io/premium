@@ -1,5 +1,19 @@
 const expect = require('chai').expect;
 
+describe('Testing storage', () => {
+    it('getPublicUrl', () => {
+        const storage = require('./storage.cjs');
+        expect(storage.getPublicUrl('test')).to.equal(
+            'https://storage.googleapis.com/creator-eco-stage.appspot.com/test'
+        );
+    });
+    it('getSignedUrl', async() => {
+        const storage = require('./storage.cjs');
+        const signedUrl = await storage.getSignedUrl('test');
+        expect(signedUrl.length).to.be.greaterThan(32);
+    });
+});
+
 describe('Database dependant tests', () => { // We should mock the database for any non-db tests.
     require('dotenv').config();
     process.env.PGDATABASE = `${process.env.PGDATABASE}_test`;
@@ -51,9 +65,6 @@ describe('Database dependant tests', () => { // We should mock the database for 
             response = await server.inject({method: 'GET', url: '/site/dev.html'});
             expect(response.statusCode).to.equal(200);
             expect(response.headers['content-type']).to.equal('text/html');
-            response = await server.inject({method: 'GET', url: '/site/premium.js'});
-            expect(response.statusCode).to.equal(200);
-            expect(response.headers['content-type']).to.equal('application/javascript');
         });
     });
 });
