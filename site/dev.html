@@ -15,7 +15,7 @@
         // Load the Premium UI like a Core-UI and a boss.
         const show = (filePath, authToken) => {
             // Plant the google auth token in the global scope, just like the Core-UI does at the moment.
-            window.deweb = {getFirebaseIdToken: () => new Promise((resolve) => resolve(authToken))};
+            window.deWeb = {getFirebaseIdToken: () => new Promise((resolve) => resolve(authToken))};
 
             // Load premium.js and mount it as a SSPA package.
             requirejs([`/player?filePath=${filePath}`], (premium) => {
