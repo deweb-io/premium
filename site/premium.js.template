@@ -17,6 +17,31 @@ const getBbsCommon = async() => {
     return bbs;
 };
 
+// Get the right player.
+const makePlayer = async(productDetails) => {
+    let player = null;
+    if(productDetails.signedUrl) {
+        if(productDetails.type === 'video') {
+            player = document.createElement('video');
+        } else if(productDetails.type === 'audio') {
+            player = document.createElement('audio');
+        } else if(productDetails.type === 'image') {
+            player = document.createElement('img');
+        } else {
+            throw new Error('Unsupported file type');
+        }
+        player.src = productDetails.signedUrl;
+        player.controls = true;
+    } else {
+        player = document.createElement('img');
+        player.src = productDetails.previewUrl;
+        player.addEventListener('click', () => {
+            window.open(productDetails.purchaseUrl, '_blank');
+        });
+    }
+    return player;
+};
+
 // Define Single SPA lifecycle entry points as AMD modules.
 define({
     mount: async(sspaArgs) => {
@@ -27,11 +52,8 @@ define({
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({filePath, authToken})
         })).json();
-
         const ui = document.createElement('div');
-        const player = document.createElement('p');
-        player.textContent = JSON.stringify(productDetails);
-        ui.appendChild(player);
+        ui.appendChild(await makePlayer(productDetails));
         sspaArgs.domElement.appendChild(ui);
     },
     // We are not currently using these lifecycle functions.
