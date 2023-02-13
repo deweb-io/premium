@@ -3,10 +3,9 @@ const postgres = require('postgres');
 
 dotenv.config();
 const psql = postgres({transform: postgres.toCamel});
-exports.psql = psql;
 
 // Database initialization.
-exports.refreshDatabase = async() => {
+const refreshDatabase = async() => {
     console.warn(`┌refreshing database ${process.env.PGHOST}:${process.env.PGPORT}/${process.env.PGDATABASE}`);
 
     console.warn('│┌clearing all tables');
@@ -37,4 +36,16 @@ exports.refreshDatabase = async() => {
 };
 
 // Report database connection and health.
-exports.health = () => psql`SELECT 1 FROM posts LIMIT 1` && 'OK';
+const health = async() => await psql`SELECT 1 FROM files LIMIT 1` && 'OK';
+
+const getProduct = async(path) => {
+    const product = await psql`SELECT * FROM files WHERE path = ${path}`;
+    if(product.length === 0) {
+        const productNotFound = new Error(`no product with path ${path}`);
+        productNotFound.statusCode = 404;
+        throw productNotFound;
+    }
+    return product[0];
+};
+
+exports = module.exports = {psql, refreshDatabase, health, getProduct};
