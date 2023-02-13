@@ -1,3 +1,4 @@
+// Handle files stored on Google Cloud Storage.
 const dotenv = require('dotenv');
 const storage = require('@google-cloud/storage');
 
