@@ -48,6 +48,8 @@ describe('Storage', () => {
 
 describe('Store', async() => {
     const store = require('./store.cjs');
+    const filePath = 'a test/file/path';
+    const authToken = require('fast-jwt').createSigner({key: 'key'})({});
 
     it('Product retrieval', async() => {
         // Mock storage.
@@ -67,7 +69,15 @@ describe('Store', async() => {
             type: 'type',
             preview: 'preview'
         });
-        expect((await store.getProduct('test'))).to.deep.equal({
+        expect((await store.getProduct(filePath, 'bad token'))).to.deep.equal({
+            path: 'path',
+            created: 'created',
+            updated: 'updated',
+            type: 'type',
+            preview: 'preview',
+            previewUrl: 'publicUrl'
+        });
+        expect((await store.getProduct(filePath, authToken))).to.deep.equal({
             path: 'path',
             created: 'created',
             updated: 'updated',

@@ -1,3 +1,4 @@
+// Database initialization and access.
 const dotenv = require('dotenv');
 const postgres = require('postgres');
 

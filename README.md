@@ -12,10 +12,10 @@ The only requirements is that it exposes an API call that let's us check if a BB
 
 The Premium integration should work similarly to Youtube video embedding, in that the posting user is expected to upload the premium digital asset from an independent domain and insert the obtained product link into a post. The only interaction between the Core-UI and the Premium service occurs when viewing posts that contain such links.
 
-For this purpose the Premium service will expose the following endpoints:
+For this purpose the Premium service exposes the following endpoints:
 * `GET:/health` - checks if everything is fine and dandy, so the Core-UI can disable the plugin if the service is unhealthy, and even notify the user)
-* `GET:/view/:asset-ID` - returns a Single SPA compatible JS package (an AMD module which defines the Single SPA lifecycle stages) that deploys an interface for viewing the asset (this allows for seamless integration with the Core-UI Web app, and the mobile UI simply opens an iframe with the Web app) or its preview, depending on whether the logged in user has purchased it or not
-* `GET:/view/:asset-ID?preview` - returns a preview image, so the Core-UI can display it in post lists and such
+* `GET:/player?filePath` - returns a Single SPA compatible JS package (an AMD module which defines the Single SPA lifecycle stages) that deploys an interface for viewing the asset (this allows for seamless integration with the Core-UI Web app, and the mobile UI simply opens an iframe with the Web app) or its preview, depending on whether the logged in user has purchased it or not
+* `POST:/productDetails (filePath, authToken)` - returns a JSON with the asset's details, including a preview image and a signed URL to the asset if the authtoken is valid and identifies an authorized user
 
 ## Operation
 

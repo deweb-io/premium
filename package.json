@@ -39,6 +39,7 @@
     "@fastify/cors": "^8.2.0",
     "@google-cloud/storage": "^6.9.2",
     "dotenv": "^16.0.3",
+    "fast-jwt": "^2.2.0",
     "fastify": "^4.13.0",
     "fastify-cli": "^5.7.1",
     "postgres": "^3.3.3"
