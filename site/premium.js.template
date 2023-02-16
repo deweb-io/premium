@@ -1,63 +1,75 @@
 // Premium service plugin for BBS Core-UI.
-const premiumServer = 'http://localhost:8000';
+(async() => {
+    const premiumServer = 'http://localhost:8000';
 
-// This will be replaced by the server.
-const filePath = null;
-if(!filePath) throw new Error('filePath is not defined');
+    // This will be replaced by the server.
+    const slug = null;
+    if(!slug) throw new Error('slug is not defined');
 
-// Try to import bbs-common from our server, defaulting to the CDN if that fails.
-const getBbsCommon = async() => {
-    let isRemote = false;
-    const bbs = await import(`${premiumServer}/site/bbs-common.js`).catch(() => {
-        isRemote = true;
-        return import('https://cdn.jsdelivr.net/npm/@dewebio/bbs-common@latest/index.min.js');
-    });
-    console.info(`bbs-common library loaded from ${isRemote ? 'remote CDN' : 'local file'}`, bbs);
-
-    return bbs;
-};
-
-// Get the right player.
-const makePlayer = async(productDetails) => {
-    let player = null;
-    if(productDetails.signedUrl) {
-        if(productDetails.type === 'video') {
-            player = document.createElement('video');
-        } else if(productDetails.type === 'audio') {
-            player = document.createElement('audio');
-        } else if(productDetails.type === 'image') {
-            player = document.createElement('img');
-        } else {
-            throw new Error('Unsupported file type');
-        }
-        player.src = productDetails.signedUrl;
-        player.controls = true;
-    } else {
-        player = document.createElement('img');
-        player.src = productDetails.previewUrl;
-        player.addEventListener('click', () => {
-            window.open(productDetails.purchaseUrl, '_blank');
+    // Try to import bbs-common from our server, defaulting to the CDN if that fails.
+    const getBbsCommon = async() => {
+        let isRemote = false;
+        const bbs = await import(`${premiumServer}/site/bbs-common.js`).catch(() => {
+            isRemote = true;
+            return import('https://cdn.jsdelivr.net/npm/@dewebio/bbs-common@latest/index.min.js');
         });
-    }
-    return player;
-};
+        console.info(`bbs-common library loaded from ${isRemote ? 'remote CDN' : 'local file'}`, bbs);
 
-// Define Single SPA lifecycle entry points as AMD modules.
-define({
-    mount: async(sspaArgs) => {
+        return bbs;
+    };
+
+    // Get the right player.
+    const makePlayer = async(productDetails) => {
+        let player = null;
+        if(productDetails.signedUrl) {
+            if(productDetails.type === 'video') {
+                player = document.createElement('video');
+            } else if(productDetails.type === 'audio') {
+                player = document.createElement('audio');
+            } else if(productDetails.type === 'image') {
+                player = document.createElement('img');
+            } else {
+                throw new Error('Unsupported file type');
+            }
+            player.src = productDetails.signedUrl;
+            player.controls = true;
+        } else {
+            player = document.createElement('img');
+            player.src = productDetails.previewUrl;
+            player.addEventListener('click', () => {
+                window.open(productDetails.purchaseUrl, '_blank');
+            });
+        }
+        return player;
+    };
+
+    // Show the player UI in the given domElement.
+    const show = async(domElement) => {
         const bbs = await getBbsCommon();
         const authToken = await bbs.getAuthToken();
-        const productDetails = await (await fetch(`${premiumServer}/productDetails?path=${filePath}`, {
+        const productDetails = await (await fetch(`${premiumServer}/productDetails?path=${slug}`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({filePath, authToken})
+            body: JSON.stringify({slug, authToken})
         })).json();
         const ui = document.createElement('div');
         ui.appendChild(await makePlayer(productDetails));
-        sspaArgs.domElement.appendChild(ui);
-    },
-    // We are not currently using these lifecycle functions.
-    bootstrap: async() => {},
-    unmount: async() => {},
-    unload: async() => {}
-});
+        domElement.appendChild(ui);
+    };
+
+    // Define Single SPA lifecycle entry points as AMD modules.
+    define({
+        mount: async(sspaArgs) => new Promise((resolve, reject) => {
+            try {
+                show(sspaArgs.domElement).then(resolve).catch(reject);
+            } catch(error) {
+                console.error(error);
+                sspaArgs.domElement.textContent = error.message;
+                reject(error);
+            }
+        }),
+        // We are not currently using these lifecycle functions but they are required by Single SPA.
+        bootstrap: async() => {},
+        unmount: async() => {}
+    });
+})();

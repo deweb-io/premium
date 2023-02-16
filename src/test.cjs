@@ -33,14 +33,15 @@ describe('Database', () => {
 });
 
 describe('Storage', () => {
+    const storage = require('./storage.cjs');
+
     it('getPublicUrl', () => {
-        const storage = require('./storage.cjs');
         expect(storage.getPublicUrl('test')).to.equal(
             'https://storage.googleapis.com/creator-eco-stage.appspot.com/test'
         );
     });
+
     it('getSignedUrl', async() => {
-        const storage = require('./storage.cjs');
         const signedUrl = await storage.getSignedUrl('test');
         expect(signedUrl.length).to.be.greaterThan(32);
     });
@@ -48,7 +49,7 @@ describe('Storage', () => {
 
 describe('Store', async() => {
     const store = require('./store.cjs');
-    const filePath = 'a test/file/path';
+    const slug = 'popover-heavyweight-hooded-sweatshirt-in-red/';
     const authToken = require('fast-jwt').createSigner({key: 'key'})({});
 
     it('Product retrieval', async() => {
@@ -69,7 +70,7 @@ describe('Store', async() => {
             type: 'type',
             preview: 'preview'
         });
-        expect((await store.getProduct(filePath, 'bad token'))).to.deep.equal({
+        expect((await store.getProduct(slug, 'bad token'))).to.deep.equal({
             path: 'path',
             created: 'created',
             updated: 'updated',
@@ -77,7 +78,7 @@ describe('Store', async() => {
             preview: 'preview',
             previewUrl: 'publicUrl'
         });
-        expect((await store.getProduct(filePath, authToken))).to.deep.equal({
+        expect((await store.getProduct(slug, authToken))).to.deep.equal({
             path: 'path',
             created: 'created',
             updated: 'updated',
@@ -96,7 +97,7 @@ describe('Store', async() => {
 
 describe('Web server', () => {
     let server;
-    const filePath = 'a test/file/path';
+    const slug = 'a test/file/path';
 
     before(async() => {
         // Run with swagger.
@@ -137,22 +138,22 @@ describe('Web server', () => {
     });
 
     it('Player endpoint', async() => {
-        const playerResponse = await server.inject({method: 'GET', url: `/player?filePath=${filePath}`});
+        const playerResponse = await server.inject({method: 'GET', url: `/player?slug=${slug}`});
         expect(playerResponse.statusCode).to.equal(200);
-        expect(playerResponse.body).to.contain(`const filePath = '${filePath}';`);
+        expect(playerResponse.body).to.contain(`const slug = '${slug}';`);
     });
 
     it('Product details endpoint', async() => {
         const authToken = 'an auth token';
         let detailsResponse = await server.inject({
-            method: 'POST', url: '/productDetails', payload: {filePath, authToken}
+            method: 'POST', url: '/productDetails', payload: {slug, authToken}
         });
         expect(detailsResponse.statusCode).to.equal(404);
         const store = require('./store.cjs');
         const oldGetProduct = store.getProduct;
         store.getProduct = () => ({});
         detailsResponse = await server.inject({
-            method: 'POST', url: '/productDetails', payload: {filePath, authToken}
+            method: 'POST', url: '/productDetails', payload: {slug, authToken}
         });
         expect(detailsResponse.statusCode).to.equal(200);
         expect(detailsResponse.headers['content-type'].startsWith('application/json')).to.be.true;
@@ -160,9 +161,9 @@ describe('Web server', () => {
     });
 
     it('Player endpoint', async() => {
-        const playerResponse = await server.inject({method: 'GET', url: `/player?filePath=${filePath}`});
+        const playerResponse = await server.inject({method: 'GET', url: `/player?slug=${slug}`});
         expect(playerResponse.statusCode).to.equal(200);
         expect(playerResponse.headers['content-type'].startsWith('application/javascript')).to.be.true;
-        expect(playerResponse.body).to.contain(`const filePath = '${filePath}';`);
+        expect(playerResponse.body).to.contain(`const slug = '${slug}';`);
     });
 });

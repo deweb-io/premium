@@ -21,18 +21,18 @@ module.exports = async(fastify, _) => {
     // A health check - let's make it a bit more thorough.
     fastify.get('/health', async(_, response) => await db.health());
 
-    // Return a player for a given filePath.
+    // Return a player for a given slug.
     fastify.get('/player', {
-        schema: {querystring: {filePath: {type: 'string'}}}
+        schema: {querystring: {slug: {type: 'string'}}}
     }, async(request, response) => response.type('application/javascript').send(parcelTemplate.replace(
-        'const filePath = null;', `const filePath = '${request.query.filePath}';`
+        'const slug = null;', `const slug = '${request.query.slug}';`
     )));
 
-    // Get product details for a given filePath and auth token (which will include a signed URL if authorized).
+    // Get product details for a given slug and auth token (which will include a signed URL if authorized).
     fastify.post('/productDetails', {
-        schema: {body: {type: 'object', properties: {filePath: {type: 'string'}, authToken: {type: 'string'}}}}
+        schema: {body: {type: 'object', properties: {slug: {type: 'string'}, authToken: {type: 'string'}}}}
     }, async(request, response) => response.send(
-        await store.getProduct(request.body.filePath, request.body.authToken)
+        await store.getProduct(request.body.slug, request.body.authToken)
     ));
 
     // A route for static serving files from the `site` directory.

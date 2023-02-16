@@ -8,25 +8,25 @@
 <body>
     <div id="premium"></div>
     <div id="control">
-        <input id="filePath"></input>
+        <input id="slug"></input>
         <textarea id="authToken"></textarea>
         <button id="show">show</button></div>
     <script>
         // Load the Premium UI like a Core-UI and a boss.
-        const show = (filePath, authToken) => {
+        const show = (slug, authToken) => {
             // Plant the google auth token in the global scope, just like the Core-UI does at the moment.
             window.deWeb = {getFirebaseIdToken: () => new Promise((resolve) => resolve(authToken))};
 
             // Load premium.js and mount it as a SSPA package.
-            requirejs([`/player?filePath=${filePath}`], (premium) => {
+            requirejs([`/player?slug=${slug}`], (premium) => {
                 premium.mount({domElement: document.getElementById('premium')});
             });
         }
 
         // Let the developer control the file path and auth token - currently defaulting to hard-coded values.
-        const filePathInput = document.getElementById('filePath');
+        const slugInput = document.getElementById('slug');
         const authTokenTextArea = document.getElementById('authToken');
-        filePathInput.value = 'videbate/video.mp4';
+        slugInput.value = 'videbate/video.mp4';
         authTokenTextArea.value = [
             'eyJhbGciOiJSUzI1NiIsImtpZCI6IjVhNTA5ZjAxOWY3MGQ3NzlkODBmMTUyZDFhNWQzMzgxMWFiN2NlZjciLCJ0eXAiOiJKV1QifQ.',
             'eyJuYW1lIjoiSXNyYWVsIExldmluIiwicGljdHVyZSI6Imh0dHBzOi8vbGgzLmdvb2dsZXVzZXJjb250ZW50LmNvbS9hLS9BRmRadWN',
@@ -42,7 +42,7 @@
             'u1myLTdQDSaimr_8xlLxN9CRWVkYAbr2p-M1kZvbVmsSH6BDSDkQg'
         ];
         document.getElementById('show').addEventListener('click', () => {
-            show(filePathInput.value, authTokenTextArea.value);
+            show(slugInput.value, authTokenTextArea.value);
         });
     </script>
 </body>
