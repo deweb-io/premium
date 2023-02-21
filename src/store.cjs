@@ -1,13 +1,13 @@
 // Interface with external multi-vendor/tenant marketplace.
 const axios = require('axios');
 const jwt = require('fast-jwt');
-const WooCommerceApi = require('@woocommerce/woocommerce-rest-api').default;
+const wooCommerceApi = require('@woocommerce/woocommerce-rest-api');
 
 const db = require('./db.cjs');
 const storage = require('./storage.cjs');
 
 // Get the configuration from the environment.
-const WooCommerce = new WooCommerceApi({
+const wooCommerce = new wooCommerceApi.default({
     url: 'https://subbscribe.com',
     consumerKey: 'ck_04c6b43ee315c573ad8219a2f09eebb9929cd73b',
     consumerSecret: 'cs_c1ab3443f5ffbb8fd8e6977c7b95b8d2afe265e5',
@@ -18,16 +18,14 @@ const WooCommerce = new WooCommerceApi({
 const JWT_CERTS_URL = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
 
 // Verify the auth token and return the decoded data.
-const verifyAuth = async(authToken, refreshCache) => jwt.createVerifier({
-    key: (
-        await axios.get(JWT_CERTS_URL)
-    ).data[
+const verifyAuth = async(authToken) => jwt.createVerifier({
+    key: (await axios.get(JWT_CERTS_URL)).data[
         jwt.createDecoder({complete: true})(authToken).header.kid
     ]
 })(authToken);
 
 // Check if a product has been purchased by a user.
-const checkPurchase = async(wooCommerceProductId, wordpressUserId) => (await WooCommerce.get('orders', {
+const checkPurchase = async(wooCommerceProductId, wordpressUserId) => (await wooCommerce.get('orders', {
     product: wooCommerceProductId,
     customer: wordpressUserId,
     status: 'completed'
@@ -35,10 +33,11 @@ const checkPurchase = async(wooCommerceProductId, wordpressUserId) => (await Woo
 
 // Get product information by slug, adding a signedUrl if the user has purchased it.
 const getProduct = async(slug, authToken) => {
-    const product = (await WooCommerce.get('products', {slug})).data[0];
+    const product = (await wooCommerce.get('products', {slug})).data[0];
     if(!product) {
-        // Add 404 here or in routes.
-        throw new Error(`no product with slug ${slug}`);
+        const error = new Error(`no product with slug ${slug}`);
+        error.statusCode = 404;
+        throw error;
     }
 
     let user;
@@ -68,4 +67,4 @@ const getProduct = async(slug, authToken) => {
     return dbProduct;
 };
 
-exports = module.exports = {getProduct, WooCommerce};
+exports = module.exports = {getProduct, wooCommerce};
