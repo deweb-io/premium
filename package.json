@@ -44,7 +44,8 @@
     "fast-jwt": "^2.2.0",
     "fastify": "^4.13.0",
     "fastify-cli": "^5.7.1",
-    "postgres": "^3.3.3"
+    "postgres": "^3.3.3",
+    "ssh2": "^1.11.0"
   },
   "devDependencies": {
     "@fastify/swagger": "^8.3.1",

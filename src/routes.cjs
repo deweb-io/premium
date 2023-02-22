@@ -35,6 +35,13 @@ module.exports = async(fastify, _) => {
         await store.getProduct(request.body.slug, request.body.authToken)
     ));
 
+    // Get a one-time login URL for a given auth token and redirect URL.
+    fastify.post('/loginUrl', {
+        schema: {body: {type: 'object', properties: {authToken: {type: 'string'}, redirectUrl: {type: 'string'}}}}
+    }, async(request, response) => response.send(
+        await store.getLoginUrl(request.body.authToken, request.body.redirectUrl)
+    ));
+
     // A route for static serving files from the `site` directory.
     fastify.get('/site/:path', async(request, response) => {
         const path = `/site/${request.params.path}`;

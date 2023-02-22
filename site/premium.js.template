@@ -19,7 +19,7 @@
     };
 
     // Get the right player.
-    const makePlayer = async(productDetails) => {
+    const makePlayer = async(productDetails, authToken) => {
         let player = null;
         if(productDetails.signedUrl) {
             if(productDetails.type === 'video') {
@@ -36,8 +36,15 @@
         } else {
             player = document.createElement('img');
             player.src = productDetails.previewUrl;
-            player.addEventListener('click', () => {
-                window.open(productDetails.purchaseUrl, '_blank');
+            player.addEventListener('click', async(event) => {
+                event.stopPropagation();
+                const loginUrl = await (await fetch(`${premiumServer}/loginUrl`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({authToken, redirectUrl: 'https://subbscribe.com/product/' + slug})
+                })).text();
+                console.log('!!!loginUrl', loginUrl);
+                // window.open(loginUrl, '_blank');
             });
         }
         return player;
@@ -53,7 +60,7 @@
             body: JSON.stringify({slug, authToken})
         })).json();
         const ui = document.createElement('div');
-        ui.appendChild(await makePlayer(productDetails));
+        ui.appendChild(await makePlayer(productDetails, authToken));
         domElement.appendChild(ui);
     };
 
