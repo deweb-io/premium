@@ -102,10 +102,10 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
         exp: Math.floor(Date.now() / 1000) + (60 * 60),
         iat: Math.floor(Date.now() / 1000)
     };
-    const authorizedToken = jwt.createSigner({key: asymPrivateKey, header, algorithm: 'RS256'})({
+    const authToken = jwt.createSigner({key: asymPrivateKey, header, algorithm: 'RS256'})({
         ...payload, blockchainId: ['3950249048075650071']
     });
-    const unauthorizedToken = jwt.createSigner({key: asymPrivateKey, header, algorithm: 'RS256'})({
+    const unauthToken = jwt.createSigner({key: asymPrivateKey, header, algorithm: 'RS256'})({
         ...payload, blockchainId: ['123']
     });
 
@@ -150,29 +150,13 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
 
         it('Product retrieval', async() => {
             try {
-                await store.getProduct('404', authorizedToken);
+                await store.getProductAccess('404', authToken);
             } catch(error) {
                 expect(error.message).to.equal('no product with slug 404');
             }
-
-            const unautorizedProduct = {
-                path: 'p',
-                created: 'c',
-                updated: 'u',
-                type: 't',
-                preview: 'p',
-                previewUrl: 'publicUrl'
-            };
-            expect((await store.getProduct(slug, 'bad token'))).to.deep.equal(unautorizedProduct);
-            expect((await store.getProduct(slug, unauthorizedToken))).to.deep.equal(unautorizedProduct);
-            expect((await store.getProduct(slug, authorizedToken))).to.deep.equal({
-                path: 'p',
-                created: 'c',
-                updated: 'u',
-                type: 't',
-                preview: 'p',
-                signedUrl: 'signedUrl'
-            });
+            expect((await store.getProductAccess(slug, 'bad token')).previewUrl).to.equal('publicUrl');
+            expect((await store.getProductAccess(slug, unauthToken)).previewUrl).to.equal('publicUrl');
+            expect((await store.getProductAccess(slug, authToken)).signedUrl).to.equal('signedUrl');
         }).timeout(10000);
     });
 
@@ -226,18 +210,18 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
 
         it('Product details endpoint', async() => {
             let detailsResponse = await server.inject({
-                method: 'POST', url: '/productDetails', payload: {slug: '404', authorizedToken}
+                method: 'POST', url: '/productDetails', payload: {slug: '404', authToken}
             });
             expect(detailsResponse.statusCode).to.equal(404);
             const store = require('./store.cjs');
-            const oldGetProduct = store.getProduct;
-            store.getProduct = () => ({});
+            const oldGetProductAccess = store.getProductAccess;
+            store.getProductAccess = () => ({});
             detailsResponse = await server.inject({
-                method: 'POST', url: '/productDetails', payload: {slug, authorizedToken}
+                method: 'POST', url: '/productDetails', payload: {slug, authToken}
             });
             expect(detailsResponse.statusCode).to.equal(200);
             expect(detailsResponse.headers['content-type'].startsWith('application/json')).to.be.true;
-            store.getProduct = oldGetProduct;
+            store.getProductAccess = oldGetProductAccess;
         });
 
         it('Player endpoint', async() => {
@@ -245,6 +229,11 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
             expect(playerResponse.statusCode).to.equal(200);
             expect(playerResponse.headers['content-type'].startsWith('application/javascript')).to.be.true;
             expect(playerResponse.body).to.contain(`const slug = '${slug}';`);
+        });
+
+        it('Login endpoint', async() => {
+            const linkResponse = await server.inject({method: 'POST', url: '/loginUrl', payload: {authToken}});
+            expect(linkResponse.statusCode).to.equal(200);
         });
     });
 });

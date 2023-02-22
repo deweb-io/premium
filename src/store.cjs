@@ -1,7 +1,6 @@
 // Interface with external multi-vendor/tenant marketplace.
 const axios = require('axios');
 const jwt = require('fast-jwt');
-const ssh = require('ssh2');
 const wooCommerceApi = require('@woocommerce/woocommerce-rest-api');
 
 const db = require('./db.cjs');
@@ -12,8 +11,6 @@ const JWT_CERTS_URL = 'https://www.googleapis.com/robot/v1/metadata/x509/securet
 const WOOCOMMERCE_CONSUMER_KEY = 'ck_ab50535052f77c85ea2693c79eb43bc76d4df7ff';
 const WOOCOMMERCE_CONSUMER_SECRET = 'cs_31c8abf18a9b06acf3932accb26b47381287034b';
 const WOOCOMMERCE_API_VERSION = 'wc/v3';
-const WORDPRESS_ADMIN_USERNAME = 'bbsmanager';
-const WORDPRESS_ADMIN_PASSWORD = 'verysecretpas';
 
 // An http status code aware error.
 const HttpError = (statusCode, message) => {
@@ -32,106 +29,109 @@ const wooCommerce = new wooCommerceApi.default({
 });
 
 // Verify the auth token and return the decoded data.
-const verifyAuth = async(authToken) => jwt.createVerifier({
-    key: (await axios.get(JWT_CERTS_URL)).data[
-        jwt.createDecoder({complete: true})(authToken).header.kid
-    ]
-})(authToken);
+const verifyAuth = async(authToken) => {
+    try {
+        return jwt.createVerifier({
+            key: (await axios.get(JWT_CERTS_URL)).data[
+                jwt.createDecoder({complete: true})(authToken).header.kid
+            ]
+        })(authToken).blockchainId[0];
+    } catch(_) {
+        throw HttpError(401, 'invalid auth token');
+    }
+};
+
+// Get a WooCommerce customer by BBS ID that is the email.
+const getCustomer = async(bbsId) => {
+    const customers = (await wooCommerce.get('customers', {email: `${bbsId}@bbs.network`})).data;
+    if(customers.length === 0) {
+        throw HttpError(404, `no customer with BBS ID ${bbsId}`);
+    }
+    return customers[0];
+};
+
+// Get a WooCommerce product by slug.
+const getProduct = async(slug) => {
+    const products = (await wooCommerce.get('products', {slug})).data;
+    if(products.length === 0) {
+        throw HttpError(404, `no product with slug ${slug}`);
+    }
+    return products[0];
+};
 
 // Check if a product has been purchased by a user.
-const checkPurchase = async(wooCommerceProductId, wordpressUserId) => (await wooCommerce.get('orders', {
+const checkPurchase = async(wooCommerceProductId, wooCommerceCustomerId) => (await wooCommerce.get('orders', {
     product: wooCommerceProductId,
-    customer: wordpressUserId,
+    customer: wooCommerceCustomerId,
     status: 'completed'
 })).data.length > 0;
 
-// Get product information by slug, adding a signedUrl if the user has purchased it.
-const getProduct = async(slug, authToken) => {
-    const product = (await wooCommerce.get('products', {slug})).data[0];
-    if(!product) {
-        throw HttpError(404, `no product with slug ${slug}`);
-    }
-
-    let user;
-    try {
-        user = await verifyAuth(authToken);
-
-        // TODO: Get wordpress user id from the auth token data.
-        // For now it just checks if the user is me.
-        if(user.blockchainId.indexOf('3950249048075650071') === -1) {
-            throw new Error('not me');
-        }
-        user.id = '231779357';
-    } catch(_) {
-        user = {id: 0};
-    }
+// Get product access information by slug.
+const getProductAccess = async(slug, authToken) => {
+    let product = await getProduct(slug);
 
     // Should be replaced with actual GCS path (and preview!) from the product.
     const filePath = 'videbate/video.mp4';
+    product = {...product, ...(await db.getProduct(filePath))};
 
-    const dbProduct = await db.getProduct(filePath);
-    if(await checkPurchase(product.id, user.id)) {
-        dbProduct.signedUrl = await storage.getSignedUrl(filePath);
-    } else {
-        dbProduct.previewUrl = await storage.getPublicUrl(dbProduct.preview);
+    try {
+        const customer = await getCustomer(await verifyAuth(authToken));
+        if(await checkPurchase(product.id, customer.id)) {
+            product.signedUrl = await storage.getSignedUrl(filePath);
+        } else {
+            throw new Error('unauthorized');
+        }
+    } catch(_) {
+        product.previewUrl = await storage.getPublicUrl(product.preview);
     }
 
-    return dbProduct;
+    return product;
 };
 
-// Upsert a bbs user as a WooCommerce customer.
+// Upsert a bbs user as a WooCommerce customer with a fresh password.
 const upsertUser = async(authToken) => {
-    let bbsUser;
+    let username;
     try {
-        bbsUser = await verifyAuth(authToken);
+        username = await verifyAuth(authToken);
     } catch(_) {
         throw HttpError(401, 'unauthorized');
     }
 
-    const commonId = bbsUser.blockchainId[0];
-
-    let wooCommerceUser = await wooCommerce.get('customers', {username: commonId});
-    if(wooCommerceUser.data.length === 1) {
-        wooCommerceUser = wooCommerceUser.data[0];
-    } else {
-        wooCommerceUser = (await wooCommerce.post('customers', {
-            email: `${commonId}@bbs.network`,
-            username: commonId,
-            password: Math.random().toString(36).slice(-8)
+    const password = Math.random().toString(36).slice(-8);
+    let customer;
+    try {
+        customer = await getCustomer(username);
+        customer.password = password;
+    } catch(_) {
+        customer = (await wooCommerce.post('customers', {
+            username, password, email: `${username}@bbs.network`
         })).data;
     }
-    return wooCommerceUser;
+    if(customer.password === password) {
+        await wooCommerce.put(`customers/${customer.id}`, {password});
+    } else {
+        customer.password = password;
+    }
+
+    return customer;
 };
 
 // Get a one-time login link for a user, creating the user if he doesn't exist.
-// Requires the one-time-login plugin to be installed on the wordpress site.
-// https://github.com/danielbachhuber/one-time-login
+// Requires the simple-JWT-login plugin to be installed on the wordpress site.
+// https://wordpress.org/plugins/simple-jwt-login/
 const getLoginUrl = async(authToken, redirectUrl) => {
-    const wooCommerceUser = await upsertUser(authToken);
-    return new Promise((resolve, reject) => {
-        const connection = new ssh.Client();
-        connection.on('ready', () => {
-            connection.exec(`wp user one-time-login ${wooCommerceUser.email}`, (error, stream) => {
-                if(error) {
-                    return reject(error);
-                }
-                let output = '';
-                stream.on('close', (code, signal) => {
-                    connection.end();
-                    resolve(`${output}&redirect_to=${encodeURIComponent(redirectUrl)}`);
-                }).on('data', (data) => {
-                    output += data;
-                }).stderr.on('data', (data) => {
-                    reject(new Error(`ssh command returned an error: ${data}`));
-                });
-            });
-        }).connect({
-            host: 'sftp.wp.com',
-            port: 22,
-            username: 'subbscribecom.wordpress.com',
-            password: 'ax6oan9jsGaI3uqiVBmk'
-        });
-    });
+    const customer = await upsertUser(authToken);
+    try {
+        const token = (await axios.post(`${STORE_BASE_URL}/?rest_route=/simple-jwt-login/v1/auth`, {
+            username: customer.username, password: customer.password
+        })).data.data.jwt;
+        return [
+            `${STORE_BASE_URL}/?rest_route=/simple-jwt-login/v1/autologin&JWT=${token}`,
+            `&redirectUrl=${encodeURIComponent(redirectUrl)}`
+        ].join('');
+    } catch(error) {
+        throw HttpError(500, JSON.stringify(error.response.data));
+    }
 };
 
-exports = module.exports = {getProduct, getLoginUrl, wooCommerce};
+exports = module.exports = {getCustomer, getProduct, getProductAccess, getLoginUrl, wooCommerce};

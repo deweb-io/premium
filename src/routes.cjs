@@ -32,7 +32,7 @@ module.exports = async(fastify, _) => {
     fastify.post('/productDetails', {
         schema: {body: {type: 'object', properties: {slug: {type: 'string'}, authToken: {type: 'string'}}}}
     }, async(request, response) => response.send(
-        await store.getProduct(request.body.slug, request.body.authToken)
+        await store.getProductAccess(request.body.slug, request.body.authToken)
     ));
 
     // Get a one-time login URL for a given auth token and redirect URL.
