@@ -6,6 +6,7 @@ const wooCommerceApi = require('@woocommerce/woocommerce-rest-api');
 const db = require('./db.cjs');
 const storage = require('./storage.cjs');
 
+// Get the configuration from the environment.
 const STORE_BASE_URL = 'https://subbscribe.com';
 const JWT_CERTS_URL = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
 const WOOCOMMERCE_CONSUMER_KEY = 'ck_ab50535052f77c85ea2693c79eb43bc76d4df7ff';
@@ -19,14 +20,17 @@ const HttpError = (statusCode, message) => {
     return error;
 };
 
-// Get the configuration from the environment.
-const wooCommerce = new wooCommerceApi.default({
-    url: STORE_BASE_URL,
-    consumerKey: WOOCOMMERCE_CONSUMER_KEY,
-    consumerSecret: WOOCOMMERCE_CONSUMER_SECRET,
-    version: WOOCOMMERCE_API_VERSION,
-    wpAPI: true
-});
+// Initialize the WooCommerce API only when required, because it slows down local development.
+let _wooCommerceCache;
+const wooCommerce = new Proxy({}, {get(_, property) {
+    return (_wooCommerceCache ? _wooCommerceCache : (_wooCommerceCache = new wooCommerceApi.default({
+        url: STORE_BASE_URL,
+        consumerKey: WOOCOMMERCE_CONSUMER_KEY,
+        consumerSecret: WOOCOMMERCE_CONSUMER_SECRET,
+        version: WOOCOMMERCE_API_VERSION,
+        wpAPI: true
+    })))[property];
+}});
 
 // Verify the auth token and return the decoded data.
 const verifyAuth = async(authToken) => {

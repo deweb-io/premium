@@ -234,6 +234,6 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
         it('Login endpoint', async() => {
             const linkResponse = await server.inject({method: 'POST', url: '/loginUrl', payload: {authToken}});
             expect(linkResponse.statusCode).to.equal(200);
-        });
+        }).timeout(5000);
     });
 });
