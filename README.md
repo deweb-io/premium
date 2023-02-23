@@ -1,48 +1,88 @@
-# Premium
+# Premium Plugin Service
 
 A BBS Core-UI plugin to handle premium content.
 
 This plugin is, in fact, an integration between the Core-UI and an external multi-vendor/tenant digital-goods marketplace.
 
-This external marketplace will probably be [Woocommerce](https://woocommerce.com/) with the [Product Vendors](https://woocommerce.com/es-es/products/product-vendors/) extension, but it can also be [Medusa](https://github.com/medusajs/medusa) with [Medusa Extender](https://github.com/adrien2p/medusa-extender) and [Medusa Marketplace Plugin](https://github.com/shahednasser/medusa-marketplace), or even [Ghost](https://ghost.org/).
+We chose to use WooCommerce as an external store, but any store that can sell digital goods and has a decent API can be supported. The exact requirements are detailed below.
 
-The only requirements is that it exposes an API call that let's us check if a BBS user has purchased a specific product, and that it can give us access to the digital goods and their previews.
+## Architecture
 
-## BBS Core-UI Integration
+The main components of the system are:
+* Digital Store - where users sell and buy digital goods
+    * Let's users sell digital goods
+        * This is basic WooCommerce functionality
+    * Let's users buy digital goods
+        * This is basic WooCommerce functionality
+    * Let's the Premium Plugin Service associate BBS users to Digital Store users
+        * To do this, we use the WooCommerce API to create Digital Store users that the Premium Plugin Service manages, and to generate auto-login URLs for them
+    * Let's the Premium Plugin Service query the Digital Store and find out if a specific user purchased a specific good
+        * This is basic WooCommerce functionality, but we may need to enhance it to supprot bundles
+    * Let's the Premium Plugin Service access the digital goods on behalf of the BBS user associated with the Digital Store user
+        * To do this, we will use a plugin that stores the digital goods on a GCS bucket which we own
+* Core-UI - where users are offered digital goods and consume them
+    * Let's users embed links to digital goods from the Digital Store
+        * This is basic Core-UI functionality
+    * Let's domain owners enable the Premium Service Plugin for the domain
+        * Does this already exist, or does it need to be developed? Remember that since we don't have plugin meta-data in the post, and we don't want to send parameters in the request for the Premium UI, we need to extrapolate the address of the Single SPA package from the embed link, which should be part of the configuration
+    * Let's community admins enable the Premium Service Plugin for the board (or for specific users on the board)
+        * This needs to be developed, and can probably wait for a later phase
+    * Loads the Premium Service Plugin for embedded links when the plugin is enabled
+        * This is done with our existing Single SPA mechanism, and a crude version can be found in and `premium` branch on our Core-UI repo
+* Premium Plugin Service - which integrates the Core-UI and the Digital Store
+    * Provides a UI for accessing goods from the Digital Store which the Core-UI can load
 
-The Premium integration should work similarly to Youtube video embedding, in that the posting user is expected to upload the premium digital asset from an independent domain and insert the obtained product link into a post. The only interaction between the Core-UI and the Premium service occurs when viewing posts that contain such links.
+### Digital Store Operation
 
-For this purpose the Premium service exposes the following endpoints:
+- Install [WordPress](https://wordpress.org/) - this is the platform running the store's site
+- Install [WooCommerce](https://woocommerce.com/) version 7.4.0 - this is a plugin that turns WordPress into a digital store
+- Install [Simple JWT Login](https://wordpress.org/plugins/simple-jwt-login/) version 3.5.0 - let's us generate auto-login URLs
+    - Enter a strong `JWT Decryption` Key (`General-3` in the plugin configuration menu)
+    - Set `Get JWT token from` to `1. REQUEST` only (just below `General-3` in the plugin configuration menu)
+    - Set `Allow Auto-Login` to `Yes` (top of `Login` in the plugin configuration menu)
+    - Check `Allow redirect to a specific URL if redirectUrl is present in the request` (bottom of `Login` in the plugin configuration menu)
+    - Set `Allow Authentication` to `Yes` (top of `Authentication` in the plugin configuration menu)
+    - Check all `JWT Payload parameters` (middle of `Authentication` in the plugin configuration menu)
+- Install other plugins and configure them - Yanis will go into further details
+
+### Core-UI Operation
+
+The Premium Plugin integration should work similarly to Youtube video embedding, in that the posting user is expected to upload the premium digital asset to the Digital Store from an independent domain and insert the obtained link into a post. The only interaction between the Core-UI and the Premium Plugin Service occurs when viewing posts that contain such links.
+
+The links are in the form `https://<Digital Store>/product/<slug>` (the slug is a human readable string identifying the product). When such a link is rendered inside a post, and the plugin is enabled, the Core-UI simply mounts a Single SPA parcel from `https://<Premium Plugin Service>/player?slug=<slug>` and the Premium Plugin Service does the rest.
+
+In order for the Premium Plugin Service to authenticate the BBS user running the Core-UI, the Premium UI parcel requires access to a signed auth token. For this purpose the `premium` branch of our Core-UI repo exposes the Firebase auth token through the `window.deWeb.getFirebaseIdToken` function, but we can also transfer it through a POST request when loading the parcel.
+
+### Premium Plugin Service Operation
+
+The service exposes the following endpoints:
 * `GET:/health` - checks if everything is fine and dandy, so the Core-UI can disable the plugin if the service is unhealthy, and even notify the user)
-* `GET:/player?filePath` - returns a Single SPA compatible JS package (an AMD module which defines the Single SPA lifecycle stages) that deploys an interface for viewing the asset (this allows for seamless integration with the Core-UI Web app, and the mobile UI simply opens an iframe with the Web app) or its preview, depending on whether the logged in user has purchased it or not
+* `GET:/player?slug=<slug>` - returns a Single SPA compatible JS package (an AMD module which defines the Single SPA lifecycle stages) that deploys an interface for viewing the digital good or its preview, depending on whether the logged in user has purchased it or not (this allows for seamless integration with the Core-UI Web app, and the mobile UI simply opens an iframe with the Web app)
 * `POST:/productDetails (filePath, authToken)` - returns a JSON with the asset's details, including a preview image and a signed URL to the asset if the authtoken is valid and identifies an authorized user
+* `POST:/loginUrl (authToken, redirectUrl)` - returns a URL that performs automatic login to the Digital Store on the wanted page
+* `GET:/site/<path>` - serves static assets for convenience when developing (will probably get removed in the future)
 
-## Operation
+### The Full Flow
 
-We currently assume the files and previews are hosted on a Google Cloud Storage bucket that we have access to it. We also assume that the previews are public. This is rather easy to do on Woocommerce, Medusa and Ghost.
-
-We run our own Premium server to bridge between the store and the BBS Core-UI, and we use an RDBMS (postgres) to manage the plugin private data. If we end up hosting our own store we may use the same RDBMS as it does, and maybe run our server from the same instance.
-
-## BBS Network Integration
-
-When loaded, the viewer component needs some way to prove to the Premium server that the current client session is actually run by a specific BBS user, so that the Premium server can check with the store that said user is allowed to view the requested content.
-
-For this purpose we use a function from the [bbs-common library](https://github.com/deweb-io/bbs-common/), available on npm. By default, we use the latest version from [jsdelivr](https://cdn.jsdelivr.net/npm/@dewebio/bbs-common@1.0.7/index.min.js). For convenience, you can keep your own version on `site/bbs-common.js` and it will be used instead.
-
-We will also need to implement a way for the Premium server to query the external store. Until we decide on a store we will use a stub.
+We should expand this part.
 
 ## Running Locally
 
+Except for the service itself, running on Node 18, you will need to run a PostgreSQL RDBMS, which we will use for storing BI data, and an online WooCommerce site, as described above, at https://subbscribe.com (sorry, this is currently hard-coded).
+
 Create an `.env` file with some basic params:
 
-* `FASTIFY_ADDRESS`  - Host to serve from (defaults to 127.0.0.1)
-* `FASTIFY_PORT`     - Port to serve from (defaults to 8000)
-* `FASTIFY_SWAGGER`  - Serve swagger-UI from `/doc` (defaults to false)
-* `PGHOST`           - Postgres host (defaults to localhost)
-* `PGPORT`           - Postgres port (defualts to 5432)
-* `PGDATABASE`       - Postgres database (schema) name (defaults to postgres)
-* `PGUSERNAME`       - Postgres user name (defaults to user running the process)
-* `PGPASSWORD`       - Postgres user password (defaults to no-password)
+* `FASTIFY_ADDRESS`                 - Host to serve from (defaults to 127.0.0.1)
+* `FASTIFY_PORT`                    - Port to serve from (defaults to 8000)
+* `FASTIFY_SWAGGER`                 - Serve swagger-UI from `/doc` (defaults to false)
+* `PGHOST`                          - Postgres host (defaults to localhost)
+* `PGPORT`                          - Postgres port (defualts to 5432)
+* `PGDATABASE`                      - Postgres database (schema) name (defaults to postgres)
+* `PGUSERNAME`                      - Postgres user name (defaults to user running the process)
+* `PGPASSWORD`                      - Postgres user password (defaults to no-password)
+* `GCP_PROJECT_ID`                  - The ID of the GCP project which owns the GCS bucket storing the digital goods
+* `GCP_BUCKET_NAME`                 - The name of the GCS bucket storing the digital goods
+* `GOOGLE_APPLICATION_CREDENTIALS`  - Credential JSON for accessing the bucket
 
 ```sh
 npm install         # Install dependencies
@@ -55,12 +95,16 @@ npm run start       # Run the Web server in production mode (with all checks)
 npm run dev         # Run the Web server in debug mode (auto reload and swagger enabled)
 ```
 
-Once you run a server, you can access `/site/dev.html` which loads the `/site/premium.js` package as if it's a Single SPA component. If you have access to the `CreatorApp` repository you can run the `premium` branch and view any post with a link in the form `http://localhost:8000/player?filePath=videbate/video.mp4&premium=yes`.
+Once you run a server, you can access `/site/dev.html` which loads the `/site/premium.js.template` package as if it's a Single SPA component. If you have access to the `CreatorApp` repository you can run the `premium` branch and paste product links into posts and view them.
+
+Note that the Premium UI uses the [bbs-common library](https://github.com/deweb-io/bbs-common/), available on npm. If no local copy is found, it will fetch the latest version from [jsdelivr](https://cdn.jsdelivr.net/npm/@dewebio/bbs-common@latest/index.min.js). For convenience, you can keep a local copy on `site/bbs-common.js` which will be used instead.
 
 ## Deploy to GCP
+
 Set deploy env in `deployment/cloudRunDeploy.sh` and run it.
 
 ## Using Cloud SQL (postgres)
+
 First, create instance on google cloud.
 
 In order to allow connection from cloud run follow the following:
