@@ -47,8 +47,8 @@ describe('Storage', () => {
     });
 });
 
-describe('Mocked product retrieval', async() => {
-    const store = require('./store.cjs');
+describe('Mocked product retrieval', () => {
+    let store;
     const jwt = require('fast-jwt');
     // Create an auth token.
     const asymPrivateKey = `
@@ -102,11 +102,14 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
         exp: Math.floor(Date.now() / 1000) + (60 * 60),
         iat: Math.floor(Date.now() / 1000)
     };
+    const authCustomer = '3950249048075650071';
+    const nonExistingCustomer = '404';
+    const unauthSlug = '403';
     const authToken = jwt.createSigner({key: asymPrivateKey, header, algorithm: 'RS256'})({
-        ...payload, blockchainId: ['3950249048075650071']
+        ...payload, blockchainId: [authCustomer]
     });
-    const unauthToken = jwt.createSigner({key: asymPrivateKey, header, algorithm: 'RS256'})({
-        ...payload, blockchainId: ['123']
+    const nonExistingToken = jwt.createSigner({key: asymPrivateKey, header, algorithm: 'RS256'})({
+        ...payload, blockchainId: [nonExistingCustomer]
     });
 
     // Mocks.
@@ -114,6 +117,7 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
     const storage = require('./storage.cjs');
     const db = require('./db.cjs');
     const axios = require('axios');
+    const wooCommerceRestApi = require('@woocommerce/woocommerce-rest-api');
 
     before(async() => {
         // Mock storage.
@@ -126,14 +130,28 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
         db.getProduct = () => ({path: 'p', created: 'c', updated: 'u', type: 't', preview: 'p'});
 
         // Mock axios (for public key retrieval).
-        mockedList.axios = {get: axios.get};
+        mockedList.axios = {get: axios.get, post: axios.post};
         axios.get = () => ({data: {notTheKid: 'notTheKey', [header.kid]: asymPublicKey}});
+        axios.post = () => ({data: {data: {jwt: 'jwt'}}});
 
-        // Mock store's wooCommerce API object.
-        mockedList.store = {wooCommerce: store.wooCommerce};
-        store.wooCommerce = {get: async(endpoint, args) => ({
-            data: (args && args.slug && args.slug === '404') ? [] : ['mock']
-        })};
+        // Mock wooCommerce API caller.
+        mockedList.store = {wooCommerceRestApiDefault: wooCommerceRestApi.default};
+        wooCommerceRestApi.default = class{
+            constructor() {
+                this.get = (endpoint, args) => {
+                    if(endpoint === 'customers' && args.email.startsWith(nonExistingCustomer)) return {data: []};
+                    if(endpoint === 'products' && args.slug === '404') return {data: []};
+                    if(endpoint === 'products' && args.slug === unauthSlug) return {data: [{id: unauthSlug}]};
+                    if(endpoint === 'orders' && args.product === unauthSlug) return {data: []};
+                    return {data: [{id: 200}]};
+                };
+                this.put = () => ({data: {id: 201}});
+                this.post = () => ({data: {id: 201}});
+            }
+        };
+
+        // Finally import store.
+        store = require('./store.cjs');
     });
 
     after(async() => {
@@ -142,7 +160,9 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
         storage.getSignedUrl = mockedList.storage.getSignedUrl;
         db.getProduct = mockedList.db.getProduct;
         axios.get = mockedList.axios.get;
-        store.wooCommerce = mockedList.store.wooCommerce;
+        axios.post = mockedList.axios.post;
+        store.wooCommerceApi = mockedList.store.wooCommerceApi;
+        wooCommerceRestApi.default = mockedList.store.wooCommerceRestApiDefault;
     });
 
     describe('Store', async() => {
@@ -151,12 +171,15 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
         it('Product retrieval', async() => {
             try {
                 await store.getProductAccess('404', authToken);
+                expect.fail();
             } catch(error) {
                 expect(error.message).to.equal('no product with slug 404');
             }
-            expect((await store.getProductAccess(slug, 'bad token')).previewUrl).to.equal('publicUrl');
-            expect((await store.getProductAccess(slug, unauthToken)).previewUrl).to.equal('publicUrl');
+
             expect((await store.getProductAccess(slug, authToken)).signedUrl).to.equal('signedUrl');
+            expect((await store.getProductAccess(unauthSlug, authToken)).previewUrl).to.equal('publicUrl');
+            expect((await store.getProductAccess(slug, nonExistingToken)).previewUrl).to.equal('publicUrl');
+            expect((await store.getProductAccess(slug, 'bad token')).previewUrl).to.equal('publicUrl');
         }).timeout(10000);
     });
 
@@ -180,7 +203,7 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
 
             // Mock fs to check for filetypes that don't exist in the site directory by default.
             const fs = require('fs');
-            const oldReadFileSync = fs.readFileSync;
+            const originalReadFileSync = fs.readFileSync;
             fs.readFileSync = () => 'content';
 
             response = await server.inject({method: 'GET', url: '/site/test.js'});
@@ -190,7 +213,7 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
             response = await server.inject({method: 'GET', url: '/site/file.nosuckextension'});
             expect(response.statusCode).to.equal(404);
 
-            fs.readFileSync = oldReadFileSync;
+            fs.readFileSync = originalReadFileSync;
 
             response = await server.inject({method: 'GET', url: '/site/dev.html'});
             expect(response.statusCode).to.equal(200);
@@ -214,14 +237,14 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
             });
             expect(detailsResponse.statusCode).to.equal(404);
             const store = require('./store.cjs');
-            const oldGetProductAccess = store.getProductAccess;
+            const originalGetProductAccess = store.getProductAccess;
             store.getProductAccess = () => ({});
             detailsResponse = await server.inject({
                 method: 'POST', url: '/productDetails', payload: {slug, authToken}
             });
             expect(detailsResponse.statusCode).to.equal(200);
             expect(detailsResponse.headers['content-type'].startsWith('application/json')).to.be.true;
-            store.getProductAccess = oldGetProductAccess;
+            store.getProductAccess = originalGetProductAccess;
         });
 
         it('Player endpoint', async() => {
@@ -232,8 +255,17 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
         });
 
         it('Login endpoint', async() => {
-            const linkResponse = await server.inject({method: 'POST', url: '/loginUrl', payload: {authToken}});
+            let linkResponse;
+            linkResponse = await server.inject({method: 'POST', url: '/loginUrl', payload: {authToken}});
             expect(linkResponse.statusCode).to.equal(200);
+            linkResponse = await server.inject({
+                method: 'POST', url: '/loginUrl', payload: {authToken: nonExistingToken}
+            });
+            expect(linkResponse.statusCode).to.equal(200);
+            linkResponse = await server.inject({
+                method: 'POST', url: '/loginUrl', payload: {authToken: ''}
+            });
+            expect(linkResponse.statusCode).to.equal(401);
         }).timeout(5000);
     });
 });

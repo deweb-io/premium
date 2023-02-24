@@ -21,9 +21,8 @@ const HttpError = (statusCode, message) => {
 };
 
 // Initialize the WooCommerce API only when required, because it slows down local development.
-let _wooCommerceCache;
-const wooCommerce = new Proxy({}, {get(_, property) {
-    return (_wooCommerceCache ? _wooCommerceCache : (_wooCommerceCache = new wooCommerceApi.default({
+const wooCommerce = new Proxy({}, {get(target, property) {
+    return (target.wooCommerceCache ? target.wooCommerceCache : (target.wooCommerceCache = new wooCommerceApi.default({
         url: STORE_BASE_URL,
         consumerKey: WOOCOMMERCE_CONSUMER_KEY,
         consumerSecret: WOOCOMMERCE_CONSUMER_SECRET,
@@ -80,7 +79,7 @@ const getProductAccess = async(slug, authToken) => {
 
     try {
         const customer = await getCustomer(await verifyAuth(authToken));
-        if(await checkPurchase(product.id, customer.id)) {
+        if(await checkPurchase(product.id, customer)) {
             product.signedUrl = await storage.getSignedUrl(filePath);
         } else {
             throw new Error('unauthorized');
@@ -125,17 +124,13 @@ const upsertUser = async(authToken) => {
 // https://wordpress.org/plugins/simple-jwt-login/
 const getLoginUrl = async(authToken, redirectUrl) => {
     const customer = await upsertUser(authToken);
-    try {
-        const token = (await axios.post(`${STORE_BASE_URL}/?rest_route=/simple-jwt-login/v1/auth`, {
-            username: customer.username, password: customer.password
-        })).data.data.jwt;
-        return [
-            `${STORE_BASE_URL}/?rest_route=/simple-jwt-login/v1/autologin&JWT=${token}`,
-            `&redirectUrl=${encodeURIComponent(redirectUrl)}`
-        ].join('');
-    } catch(error) {
-        throw HttpError(500, JSON.stringify(error.response.data));
-    }
+    const token = (await axios.post(`${STORE_BASE_URL}/?rest_route=/simple-jwt-login/v1/auth`, {
+        username: customer.username, password: customer.password
+    })).data.data.jwt;
+    return [
+        `${STORE_BASE_URL}/?rest_route=/simple-jwt-login/v1/autologin&JWT=${token}`,
+        `&redirectUrl=${encodeURIComponent(redirectUrl)}`
+    ].join('');
 };
 
-exports = module.exports = {getCustomer, getProduct, getProductAccess, getLoginUrl, wooCommerce};
+exports = module.exports = {getProductAccess, getLoginUrl, wooCommerce};
