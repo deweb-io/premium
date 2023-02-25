@@ -79,7 +79,7 @@ const getProductAccess = async(slug, authToken) => {
 
     try {
         const customer = await getCustomer(await verifyAuth(authToken));
-        if(await checkPurchase(product.id, customer)) {
+        if(await checkPurchase(product.id, customer.id)) {
             product.signedUrl = await storage.getSignedUrl(filePath);
         } else {
             throw new Error('unauthorized');
