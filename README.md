@@ -49,7 +49,7 @@ The main components of the system are:
 
 The Premium Service integration should work similarly to Youtube video embedding, in that the posting user is expected to upload the premium digital asset to the Digital Store from an independent domain and insert the obtained link into a post. The only interaction between the Core-UI and the Premium Service occurs when viewing posts that contain such links.
 
-The links are in the form `https://<Digital Store>/product/<slug>` (the slug is a human readable string identifying the product). When such a link is rendered inside a post, and the plugin is enabled, the Core-UI simply mounts a Single SPA parcel from `https://<Premium Service>/player?slug=<slug>` and the Premium Service does the rest.
+The links are in the form `https://<Digital Store>/product/<slug>` (the slug is a human readable string identifying the product). When such a link is rendered inside a post, and the plugin is enabled, the Core-UI simply mounts a Single SPA parcel from `https://<Premium Service>/product/<slug>` and the Premium Service does the rest.
 
 In order for the Premium Service to authenticate the BBS user running the Core-UI, the Premium UI parcel requires access to a signed auth token. For this purpose the `premium` branch of our Core-UI repo exposes the Firebase auth token through the `window.deWeb.getFirebaseIdToken` function, but we can also transfer it through a POST request when loading the parcel.
 
@@ -57,10 +57,10 @@ In order for the Premium Service to authenticate the BBS user running the Core-U
 
 The service exposes the following endpoints:
 * `GET:/health` - checks if everything is fine and dandy, so the Core-UI can disable the plugin if the service is unhealthy, and even notify the user)
-* `GET:/player?slug=<slug>` - returns a Single SPA compatible JS package (an AMD module which defines the Single SPA lifecycle stages) that deploys an interface for viewing the digital good or its preview, depending on whether the logged in user has purchased it or not (this allows for seamless integration with the Core-UI Web app, and the mobile UI simply opens an iframe with the Web app)
-* `POST:/productDetails (filePath, authToken)` - returns a JSON with the asset's details, including a preview image and a signed URL to the asset if the authtoken is valid and identifies an authorized user
-* `POST:/loginUrl (authToken, redirectUrl)` - returns a URL that performs automatic login to the Digital Store on the wanted page
-* `GET:/site/<path>` - serves static assets for convenience when developing (will probably get removed in the future)
+* `GET:/product/<slug>` - returns a Single SPA compatible JS package (an AMD module which defines the Single SPA lifecycle stages) that deploys an interface for viewing the digital good or its preview, depending on whether the logged in user has purchased it or not (this allows for seamless integration with the Core-UI Web app, and the mobile UI simply opens an iframe with the Web app)
+* `POST:/product/<slug> (authToken)` - returns a JSON with the asset's details, including a preview image and a signed URL to the asset if the authtoken is valid and identifies an authorized user
+* `POST:/login/<slug> (authToken)` - returns a URL that performs automatic login to the Digital Store on the wanted digital good
+* `GET:/site/<path>` - serves static assets for convenience when developing (will get removed in production)
 
 ### The Full View Flow
 
@@ -79,21 +79,22 @@ The service exposes the following endpoints:
 
 ## Running Locally
 
-Except for the service itself, running on Node 18, you will need to run a PostgreSQL RDBMS, which we will use for storing BI data, and an online WooCommerce site, as described above, at https://subbscribe.com (sorry, this is currently hard-coded).
+Except for the service itself, running on Node 18, you will need to run a PostgreSQL RDBMS, which we will use for storing BI data, access to a GCS bucket on which the digital goods are stored, and an online WooCommerce site as described above.
 
 Create an `.env` file with some basic params:
 
 * `FASTIFY_ADDRESS`                 - Host to serve from (defaults to 127.0.0.1)
 * `FASTIFY_PORT`                    - Port to serve from (defaults to 8000)
 * `FASTIFY_SWAGGER`                 - Serve swagger-UI from `/doc` (defaults to false)
+* `STORE_BASE_URL`                  - Base URL of the Digital Store
+* `GCP_PROJECT_ID`                  - The ID of the GCP project which owns the GCS bucket storing the digital goods
+* `GCP_BUCKET_NAME`                 - The name of the GCS bucket storing the digital goods
+* `GOOGLE_APPLICATION_CREDENTIALS`  - Credential JSON for accessing the bucket
 * `PGHOST`                          - Postgres host (defaults to localhost)
 * `PGPORT`                          - Postgres port (defualts to 5432)
 * `PGDATABASE`                      - Postgres database (schema) name (defaults to postgres)
 * `PGUSERNAME`                      - Postgres user name (defaults to user running the process)
 * `PGPASSWORD`                      - Postgres user password (defaults to no-password)
-* `GCP_PROJECT_ID`                  - The ID of the GCP project which owns the GCS bucket storing the digital goods
-* `GCP_BUCKET_NAME`                 - The name of the GCS bucket storing the digital goods
-* `GOOGLE_APPLICATION_CREDENTIALS`  - Credential JSON for accessing the bucket
 
 ```sh
 npm install         # Install dependencies

@@ -7,7 +7,7 @@ const db = require('./db.cjs');
 const storage = require('./storage.cjs');
 
 // Get the configuration from the environment.
-const STORE_BASE_URL = 'https://subbscribe.com';
+const STORE_BASE_URL = process.env.STORE_BASE_URL;
 const JWT_CERTS_URL = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
 const WOOCOMMERCE_CONSUMER_KEY = 'ck_ab50535052f77c85ea2693c79eb43bc76d4df7ff';
 const WOOCOMMERCE_CONSUMER_SECRET = 'cs_31c8abf18a9b06acf3932accb26b47381287034b';
@@ -120,17 +120,22 @@ const upsertUser = async(authToken) => {
 };
 
 // Get a one-time login link for a user, creating the user if he doesn't exist.
+// If the auth token is invalid returns the product page.
 // Requires the simple-JWT-login plugin to be installed on the wordpress site.
 // https://wordpress.org/plugins/simple-jwt-login/
-const getLoginUrl = async(authToken, redirectUrl) => {
-    const customer = await upsertUser(authToken);
-    const token = (await axios.post(`${STORE_BASE_URL}/?rest_route=/simple-jwt-login/v1/auth`, {
-        username: customer.username, password: customer.password
-    })).data.data.jwt;
-    return [
-        `${STORE_BASE_URL}/?rest_route=/simple-jwt-login/v1/autologin&JWT=${token}`,
-        `&redirectUrl=${encodeURIComponent(redirectUrl)}`
-    ].join('');
+const getLoginUrl = async(slug, authToken) => {
+    try {
+        const customer = await upsertUser(authToken);
+        const token = (await axios.post(`${STORE_BASE_URL}/?rest_route=/simple-jwt-login/v1/auth`, {
+            username: customer.username, password: customer.password
+        })).data.data.jwt;
+        return [
+            `${STORE_BASE_URL}/?rest_route=/simple-jwt-login/v1/autologin&JWT=${token}`,
+            `&redirectUrl=${encodeURIComponent(`${STORE_BASE_URL}/product/${slug}`)}`
+        ].join('');
+    } catch(_) {
+        return `${STORE_BASE_URL}/product/${slug}`;
+    }
 };
 
 exports = module.exports = {getProductAccess, getLoginUrl, wooCommerce};

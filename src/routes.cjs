@@ -21,28 +21,35 @@ module.exports = async(fastify, _) => {
     // A health check - let's make it a bit more thorough.
     fastify.get('/health', async(_, response) => await db.health());
 
-    // Return a player for a given slug.
-    fastify.get('/player', {
-        schema: {querystring: {slug: {type: 'string'}}}
-    }, async(request, response) => response.type('application/javascript').send(parcelTemplate.replace(
-        'const slug = null;', `const slug = '${request.query.slug}';`
+    // A helper function to register routes with optional trailing slashes.
+    const optionalTrailingSlash = (method, path, schema, handler) => ['', '/'].forEach((suffix) => {
+        fastify[method](`${path}${suffix}`, {schema}, handler);
+    });
+
+    // Return a product player for a given slug.
+    optionalTrailingSlash('get', '/product/:slug', {schema: {
+        params: {slug: {type: 'string'}}
+    }}, async(request, response) => response.type('application/javascript').send(parcelTemplate.replace(
+        'const slug = null;', `const slug = '${request.params.slug}';`
     )));
 
     // Get product details for a given slug and auth token (which will include a signed URL if authorized).
-    fastify.post('/productDetails', {
-        schema: {body: {type: 'object', properties: {slug: {type: 'string'}, authToken: {type: 'string'}}}}
-    }, async(request, response) => response.send(
-        await store.getProductAccess(request.body.slug, request.body.authToken)
+    optionalTrailingSlash('post', '/product/:slug', {schema: {
+        params: {slug: {type: 'string'}},
+        body: {type: 'object', properties: {authToken: {type: 'string'}}}
+    }}, async(request, response) => response.send(
+        await store.getProductAccess(request.params.slug, request.body.authToken)
     ));
 
-    // Get a one-time login URL for a given auth token and redirect URL.
-    fastify.post('/loginUrl', {
-        schema: {body: {type: 'object', properties: {authToken: {type: 'string'}, redirectUrl: {type: 'string'}}}}
-    }, async(request, response) => response.send(
-        await store.getLoginUrl(request.body.authToken, request.body.redirectUrl)
-    ));
+    // Get a one-time login URL for a given auth token and product slug to redirect to after login.
+    optionalTrailingSlash('post', '/login/:slug', {schema: {
+        params: {slug: {type: 'string'}},
+        body: {type: 'object', properties: {authToken: {type: 'string'}}}
+    }}, async(request, response) => response.send(JSON.stringify({
+        url: await store.getLoginUrl(request.params.slug, request.body.authToken)
+    })));
 
-    // A route for static serving files from the `site` directory.
+    // A route for static serving files from the `site` directory - will be removed in production.
     fastify.get('/site/:path', async(request, response) => {
         const path = `/site/${request.params.path}`;
         try {

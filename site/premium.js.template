@@ -38,12 +38,15 @@
             player.src = productDetails.previewUrl;
             player.addEventListener('click', async(event) => {
                 event.stopPropagation();
-                const loginUrl = await (await fetch(`${premiumServer}/loginUrl`, {
+                const loginResponse = await fetch(`${premiumServer}/login/${slug}`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({authToken, redirectUrl: 'https://subbscribe.com/product/' + slug})
-                })).text();
-                window.open(loginUrl, '_blank');
+                    body: JSON.stringify({authToken})
+                });
+                console.log(loginResponse);
+                if(loginResponse.status === 200) {
+                    window.open((await loginResponse.json()).url, '_blank');
+                }
             });
         }
         return player;
@@ -53,10 +56,10 @@
     const show = async(domElement) => {
         const bbs = await getBbsCommon();
         const authToken = await bbs.getAuthToken();
-        const productDetails = await (await fetch(`${premiumServer}/productDetails?slug=${slug}`, {
+        const productDetails = await (await fetch(`${premiumServer}/product/${slug}`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({slug, authToken})
+            body: JSON.stringify({authToken})
         })).json();
         const ui = document.createElement('div');
         ui.appendChild(await makePlayer(productDetails, authToken));

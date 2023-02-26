@@ -1,7 +1,7 @@
+require('dotenv').config();
 const expect = require('chai').expect;
 
 describe('Database', () => {
-    require('dotenv').config();
     process.env.PGDATABASE = `${process.env.PGDATABASE}_test`;
     const db = require('./db.cjs');
 
@@ -98,7 +98,7 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
     };
     const payload = {
         sub: 'user',
-        iss: 'https://subbscribe.com',
+        iss: process.env.STORE_BASE_URL,
         exp: Math.floor(Date.now() / 1000) + (60 * 60),
         iat: Math.floor(Date.now() / 1000)
     };
@@ -185,7 +185,8 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
 
     describe('Web server', () => {
         let server;
-        const slug = 'a test/file/path';
+        const slug = 'slug';
+        const nonExistingSlug = '404';
 
         before(async() => {
             // Run with swagger.
@@ -225,47 +226,42 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
             expect(healthResponse.statusCode).to.equal(200);
         });
 
-        it('Player endpoint', async() => {
-            const playerResponse = await server.inject({method: 'GET', url: `/player?slug=${slug}`});
+        it('Product player endpoint', async() => {
+            const playerResponse = await server.inject({method: 'GET', url: `/product/${slug}`});
             expect(playerResponse.statusCode).to.equal(200);
+            expect(playerResponse.headers['content-type'].startsWith('application/javascript')).to.be.true;
             expect(playerResponse.body).to.contain(`const slug = '${slug}';`);
         });
 
-        it('Product details endpoint', async() => {
+        it('Product authentication endpoint', async() => {
             let detailsResponse = await server.inject({
-                method: 'POST', url: '/productDetails', payload: {slug: '404', authToken}
+                method: 'POST', url: `/product/${nonExistingSlug}`, payload: {authToken}
             });
             expect(detailsResponse.statusCode).to.equal(404);
+
             const store = require('./store.cjs');
             const originalGetProductAccess = store.getProductAccess;
             store.getProductAccess = () => ({});
             detailsResponse = await server.inject({
-                method: 'POST', url: '/productDetails', payload: {slug, authToken}
+                method: 'POST', url: `/product/${slug}`, payload: {authToken}
             });
             expect(detailsResponse.statusCode).to.equal(200);
             expect(detailsResponse.headers['content-type'].startsWith('application/json')).to.be.true;
             store.getProductAccess = originalGetProductAccess;
         });
 
-        it('Player endpoint', async() => {
-            const playerResponse = await server.inject({method: 'GET', url: `/player?slug=${slug}`});
-            expect(playerResponse.statusCode).to.equal(200);
-            expect(playerResponse.headers['content-type'].startsWith('application/javascript')).to.be.true;
-            expect(playerResponse.body).to.contain(`const slug = '${slug}';`);
-        });
-
         it('Login endpoint', async() => {
             let linkResponse;
-            linkResponse = await server.inject({method: 'POST', url: '/loginUrl', payload: {authToken}});
+            linkResponse = await server.inject({method: 'POST', url: `/login/${slug}`, payload: {authToken}});
             expect(linkResponse.statusCode).to.equal(200);
             linkResponse = await server.inject({
-                method: 'POST', url: '/loginUrl', payload: {authToken: nonExistingToken}
+                method: 'POST', url: `/login/${slug}`, payload: {authToken: nonExistingToken}
             });
             expect(linkResponse.statusCode).to.equal(200);
             linkResponse = await server.inject({
-                method: 'POST', url: '/loginUrl', payload: {authToken: ''}
+                method: 'POST', url: `/login/${slug}`, payload: {authToken: ''}
             });
-            expect(linkResponse.statusCode).to.equal(401);
+            expect(linkResponse.statusCode).to.equal(200);
         }).timeout(5000);
     });
 });

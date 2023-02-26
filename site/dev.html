@@ -18,7 +18,7 @@
             window.deWeb = {getFirebaseIdToken: () => new Promise((resolve) => resolve(authToken))};
 
             // Load premium.js and mount it as a SSPA package.
-            requirejs([`/player?slug=${slug}`], (premium) => {
+            requirejs([`/product/${slug}`], (premium) => {
                 premium.mount({domElement: document.getElementById('premium')});
             });
         }
