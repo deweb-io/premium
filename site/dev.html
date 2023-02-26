@@ -8,41 +8,26 @@
 <body>
     <div id="premium"></div>
     <div id="control">
-        <input id="filePath"></input>
+        <input id="slug"></input>
         <textarea id="authToken"></textarea>
         <button id="show">show</button></div>
     <script>
         // Load the Premium UI like a Core-UI and a boss.
-        const show = (filePath, authToken) => {
+        const show = (slug, authToken) => {
             // Plant the google auth token in the global scope, just like the Core-UI does at the moment.
             window.deWeb = {getFirebaseIdToken: () => new Promise((resolve) => resolve(authToken))};
 
             // Load premium.js and mount it as a SSPA package.
-            requirejs([`/player?filePath=${filePath}`], (premium) => {
+            requirejs([`/product/${slug}`], (premium) => {
                 premium.mount({domElement: document.getElementById('premium')});
             });
         }
 
         // Let the developer control the file path and auth token - currently defaulting to hard-coded values.
-        const filePathInput = document.getElementById('filePath');
+        const slugInput = document.getElementById('slug');
         const authTokenTextArea = document.getElementById('authToken');
-        filePathInput.value = 'videbate/video.mp4';
-        authTokenTextArea.value = [
-            'eyJhbGciOiJSUzI1NiIsImtpZCI6IjVhNTA5ZjAxOWY3MGQ3NzlkODBmMTUyZDFhNWQzMzgxMWFiN2NlZjciLCJ0eXAiOiJKV1QifQ.',
-            'eyJuYW1lIjoiSXNyYWVsIExldmluIiwicGljdHVyZSI6Imh0dHBzOi8vbGgzLmdvb2dsZXVzZXJjb250ZW50LmNvbS9hLS9BRmRadWN',
-            'vZTVCNEUyY0JNb0NCV19oalhMZE9kbDhTSUJrVnRTSUxCTGlBbD1zOTYtYyIsImJsb2NrY2hhaW5JZCI6WyIzOTUwMjQ5MDQ4MDc1Nj',
-            'UwMDcxIl0sImlzcyI6Imh0dHBzOi8vc2VjdXJldG9rZW4uZ29vZ2xlLmNvbS9jcmVhdG9yLWVjby1zdGFnZSIsImF1ZCI6ImNyZWF0b',
-            '3ItZWNvLXN0YWdlIiwiYXV0aF90aW1lIjoxNjc1Nzg4MjgxLCJ1c2VyX2lkIjoiUUJaY2JaUFhTcFgwQ21BZlhIZnJMZnpDQWRwMiIs',
-            'InN1YiI6IlFCWmNiWlBYU3BYMENtQWZYSGZyTGZ6Q0FkcDIiLCJpYXQiOjE2NzU4ODk1MTcsImV4cCI6MTY3NTg5MzExNywiZW1haWw',
-            'iOiJpc3JhZWxAZGV3ZWIuaW8iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiZmlyZWJhc2UiOnsiaWRlbnRpdGllcyI6eyJnb29nbGUuY2',
-            '9tIjpbIjEwODk3NTg0NDc0NjI3MjU4MzM5MSJdLCJlbWFpbCI6WyJpc3JhZWxAZGV3ZWIuaW8iXX0sInNpZ25faW5fcHJvdmlkZXIiO',
-            'iJnb29nbGUuY29tIn19.gjLpSf2R3HOSkzqY2M645DR9BMNXxlF9zO6Cyl_jiTSfrAVKIvBGyPOhLlpLziFD3aRsZc5gFSXtpleleer',
-            'MvvjAq_PUuFEnriFqIAr2B6ygIiUc2RVnawGCZBqOwJldX9ib33DH7_FhAZS7o2kdCATddMlaPiPIkQTOOhFF-72JVpLfCunKsrA5s0',
-            'yyXpEUf6OWKbFqtuPDPRUbNAopXSLFsYKU6CBvfQXWctDRZPZ8LpReempGiWW9bWS7TyX9-uSxqy9VEzVEiZhg-QWkqGC6nGWkvu_z8',
-            'u1myLTdQDSaimr_8xlLxN9CRWVkYAbr2p-M1kZvbVmsSH6BDSDkQg'
-        ];
         document.getElementById('show').addEventListener('click', () => {
-            show(filePathInput.value, authTokenTextArea.value);
+            show(slugInput.value, authTokenTextArea.value);
         });
     </script>
 </body>
