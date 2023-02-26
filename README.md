@@ -82,11 +82,13 @@ The service exposes the following endpoints:
 Except for the service itself, running on Node 18, you will need to run a PostgreSQL RDBMS, which we will use for storing BI data, access to a GCS bucket on which the digital goods are stored, and an online WooCommerce site as described above.
 
 Create an `.env` file with some basic params:
-
 * `FASTIFY_ADDRESS`                 - Host to serve from (defaults to 127.0.0.1)
 * `FASTIFY_PORT`                    - Port to serve from (defaults to 8000)
 * `FASTIFY_SWAGGER`                 - Serve swagger-UI from `/doc` (defaults to false)
 * `STORE_BASE_URL`                  - Base URL of the Digital Store
+* `JWT_CERTS_URL`                   - URL for the public keys of the store module authenticaion JWT
+* `WOOCOMMERCE_CONSUMER_KEY`        - Authentication for WooCommerce REST API
+* `WOOCOMMERCE_CONSUMER_SECRET`     - Authentication for WooCommerce REST API
 * `GCP_PROJECT_ID`                  - The ID of the GCP project which owns the GCS bucket storing the digital goods
 * `GCP_BUCKET_NAME`                 - The name of the GCS bucket storing the digital goods
 * `GOOGLE_APPLICATION_CREDENTIALS`  - Credential JSON for accessing the bucket

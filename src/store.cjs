@@ -8,9 +8,9 @@ const storage = require('./storage.cjs');
 
 // Get the configuration from the environment.
 const STORE_BASE_URL = process.env.STORE_BASE_URL;
-const JWT_CERTS_URL = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
-const WOOCOMMERCE_CONSUMER_KEY = 'ck_ab50535052f77c85ea2693c79eb43bc76d4df7ff';
-const WOOCOMMERCE_CONSUMER_SECRET = 'cs_31c8abf18a9b06acf3932accb26b47381287034b';
+const JWT_CERTS_URL = process.env.JWT_CERTS_URL;
+const WOOCOMMERCE_CONSUMER_KEY = process.env.WOOCOMMERCE_CONSUMER_KEY;
+const WOOCOMMERCE_CONSUMER_SECRET = process.env.WOOCOMMERCE_CONSUMER_SECRET;
 const WOOCOMMERCE_API_VERSION = 'wc/v3';
 
 // An http status code aware error.
