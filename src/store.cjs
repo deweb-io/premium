@@ -73,7 +73,7 @@ const checkPurchase = async(wooCommerceProductId, wooCommerceCustomerId) => (awa
 const getProductAccess = async(slug, authToken) => {
     let product = await getProduct(slug);
 
-    // Should be replaced with actual GCS path (and preview!) from the product.
+    // Should be replaced with actual GCS path from the product.
     const filePath = 'videbate/video.mp4';
     product = {...product, ...(await db.getProduct(filePath))};
 
@@ -85,7 +85,11 @@ const getProductAccess = async(slug, authToken) => {
             throw new Error('unauthorized');
         }
     } catch(_) {
-        product.previewUrl = await storage.getPublicUrl(product.preview);
+        if(product.images.length > 0) {
+            product.previewUrl = product.images[0].src;
+        } else {
+            product.previewUrl = await storage.getPublicUrl(product.preview);
+        }
     }
 
     return product;
