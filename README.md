@@ -114,6 +114,14 @@ Once you run a server, you can access `/site/dev.html` which loads the `/site/pr
 Note that the Premium UI uses the [bbs-common library](https://github.com/deweb-io/bbs-common/), available on npm. If no local copy is found, it will fetch the latest version from [jsdelivr](https://cdn.jsdelivr.net/npm/@dewebio/bbs-common@latest/index.min.js). For convenience, you can keep a local copy on `site/bbs-common.js` which will be used instead.
 
 ## Deploy to GCP
+Set env variables in deployment/env.yaml.
+
+Set the following secrets on gcp Secert Manager:
+`WOOCOMMERCE_CONSUMER_KEY`
+`WOOCOMMERCE_CONSUMER_SECRET`
+`PGUSERNAME`
+`PGPASSWORD`
+`GOOGLE_APPLICATION_CREDENTIALS`
 
 Set deploy env in `deployment/cloudRunDeploy.sh` and run it.
 
