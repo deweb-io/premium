@@ -30,8 +30,10 @@ module.exports = async(fastify, _) => {
     optionalTrailingSlash('get', '/product/:slug', {schema: {
         params: {slug: {type: 'string'}}
     }}, async(request, response) => response.type('application/javascript').send(parcelTemplate.replace(
-        'const slug = null;', `const slug = '${request.params.slug}';`
-    )));
+        'const slug = null;', `const slug = '${request.params.slug}';`).replace(
+        'const premiumServer = null;', `const premiumServer = '${process.env.PREMIUM_SERVICE_ENDPOINT}';`)
+    ));
+
 
     // Get product details for a given slug and auth token (which will include a signed URL if authorized).
     optionalTrailingSlash('post', '/product/:slug', {schema: {

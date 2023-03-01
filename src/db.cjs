@@ -40,13 +40,20 @@ const refreshDatabase = async() => {
 const health = async() => await psql`SELECT 1 FROM files LIMIT 1` && 'OK';
 
 const getProduct = async(path) => {
-    const product = await psql`SELECT * FROM files WHERE path = ${path}`;
-    if(product.length === 0) {
-        const productNotFound = new Error(`no product with path ${path}`);
-        productNotFound.statusCode = 404;
-        throw productNotFound;
-    }
-    return product[0];
+    // database access can be ignored for now
+    // const product = await psql`SELECT * FROM files WHERE path = ${path}`;
+    // if(product.length === 0) {
+    //     const productNotFound = new Error(`no product with path ${path}`);
+    //     productNotFound.statusCode = 404;
+    //     throw productNotFound;
+    // }
+    // return product[0];
+
+    return {
+        path: 'videbate/image.jpg',
+        type: 'video',
+        preview: 'videbate/video-preview.jpg'
+    };
 };
 
 exports = module.exports = {psql, refreshDatabase, health, getProduct};

@@ -35,6 +35,6 @@ EOF
 # Upload docker image.
 "$GCP_CLI" builds submit --tag gcr.io/$deploy_env/premium
 # Deploy to Cloud Run.
-"$GCP_CLI" beta run deploy --image gcr.io/$deploy_env/premium --platform managed
+"$GCP_CLI" beta run deploy --env-vars-file=deployment/env.yaml --image gcr.io/$deploy_env/premium --platform managed
 
 rm Dockerfile

@@ -1,8 +1,7 @@
 // Premium service plugin for BBS Core-UI.
 (async() => {
-    const premiumServer = 'http://localhost:8000';
-
     // This will be replaced by the server.
+    const premiumServer = null;
     const slug = null;
     if(!slug) throw new Error('slug is not defined');
 
