@@ -114,24 +114,30 @@ Once you run a server, you can access `/site/dev.html` which loads the `/site/pr
 Note that the Premium UI uses the [bbs-common library](https://github.com/deweb-io/bbs-common/), available on npm. If no local copy is found, it will fetch the latest version from [jsdelivr](https://cdn.jsdelivr.net/npm/@dewebio/bbs-common@latest/index.min.js). For convenience, you can keep a local copy on `site/bbs-common.js` which will be used instead.
 
 ## Deploy to GCP
-Set env variables in deployment/env.yaml.
 
-Set the following secrets on gcp Secert Manager:
+### Quick deploy
+Set env variables in deployment/env.yaml.
+Set `deploy_env` in deployment/cloudRunDeploy.sh and run it.
+
+If deploying for the first time: 'PREMIUM_SERVICE_ENDPOINT' env is might not be known, so update after deploy.
+
+### Setup secrets
+Set the following secrets on GCP Secert Manager:
 `WOOCOMMERCE_CONSUMER_KEY`
 `WOOCOMMERCE_CONSUMER_SECRET`
 `PGUSERNAME`
 `PGPASSWORD`
 `GOOGLE_APPLICATION_CREDENTIALS`
 
-Set deploy env in `deployment/cloudRunDeploy.sh` and run it.
+Add the secrets to cloud run service (exposed as environment variable) and redeploy.
 
-## Using Cloud SQL (postgres)
-
-First, create instance on google cloud.
-
-In order to allow connection from cloud run follow the following:
+### Cloud SQL (postgres)
+* create instance on google cloud. (https://console.cloud.google.com/sql/instances)
+* create database named as `PGDATABASE` (probably 'premium').
+* verify deployment/env.yaml contains updated values for `PGHOST`, `PGPORT` and `PGDATABASE`.
+* Setup connection between 'cloud run' service to sql instance:
 https://towardsdatascience.com/how-to-connect-to-gcp-cloud-sql-instances-in-cloud-run-servies-1e60a908e8f2
-
-In order to connect to postgres from local during development:
-    1. add your ip to Authorized networks
-    2. set `PGHOST` to equal the public ip of the postgress instance on GCP (and update other postgres related env if needed).
+* Connect to remote DB from local environment:
+    1. Add your ip to Authorized networks. 
+    2. Set `PGHOST` to public ip of the postgres instance on GCP (and update other postgres related env if needed).
+    3. check connection: psql -h POSTGRES_PUBLIC_IP -U postgres -d `PGDATABASE`
