@@ -123,18 +123,18 @@ If deploying for the first time: 'PREMIUM_SERVICE_ENDPOINT' env is might not be 
 
 ### Setup secrets
 Set the following secrets on GCP Secert Manager:
-`WOOCOMMERCE_CONSUMER_KEY`
-`WOOCOMMERCE_CONSUMER_SECRET`
-`PGUSERNAME`
-`PGPASSWORD`
-`GOOGLE_APPLICATION_CREDENTIALS`
+* `WOOCOMMERCE_CONSUMER_KEY`
+* `WOOCOMMERCE_CONSUMER_SECRET`
+* `PGUSERNAME`
+* `PGPASSWORD`
+* `GOOGLE_APPLICATION_CREDENTIALS`
 
 Add the secrets to cloud run service (exposed as environment variable) and redeploy.
 
 ### Cloud SQL (postgres)
-* create instance on google cloud. (https://console.cloud.google.com/sql/instances)
-* create database named as `PGDATABASE` (probably 'premium').
-* verify deployment/env.yaml contains updated values for `PGHOST`, `PGPORT` and `PGDATABASE`.
+* Create instance on google cloud. (https://console.cloud.google.com/sql/instances)
+* Create database named as `PGDATABASE` (probably 'premium').
+* Verify deployment/env.yaml contains updated values for `PGHOST`, `PGPORT` and `PGDATABASE`.
 * Setup connection between 'cloud run' service to sql instance:
 https://towardsdatascience.com/how-to-connect-to-gcp-cloud-sql-instances-in-cloud-run-servies-1e60a908e8f2
 * Connect to remote DB from local environment:
