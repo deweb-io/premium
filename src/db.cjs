@@ -39,14 +39,4 @@ const refreshDatabase = async() => {
 // Report database connection and health.
 const health = async() => await psql`SELECT 1 FROM files LIMIT 1` && 'OK';
 
-const getProduct = async(path) => {
-    const product = await psql`SELECT * FROM files WHERE path = ${path}`;
-    if(product.length === 0) {
-        const productNotFound = new Error(`no product with path ${path}`);
-        productNotFound.statusCode = 404;
-        throw productNotFound;
-    }
-    return product[0];
-};
-
-exports = module.exports = {psql, refreshDatabase, health, getProduct};
+exports = module.exports = {psql, refreshDatabase, health};

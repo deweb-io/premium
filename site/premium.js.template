@@ -20,21 +20,21 @@
     // Get the right player.
     const makePlayer = async(productDetails, authToken) => {
         let player = null;
-        if(productDetails.signedUrl) {
-            if(productDetails.type === 'video') {
+        if(productDetails.file) {
+            if(productDetails.file.endsWith('.mp4') || productDetails.file.endsWith('.webm')) {
                 player = document.createElement('video');
-            } else if(productDetails.type === 'audio') {
+            } else if(productDetails.file.endsWith('.mp3')) {
                 player = document.createElement('audio');
-            } else if(productDetails.type === 'image') {
+            } else if(productDetails.file.endsWith('.jpg') || productDetails.file.endsWith('.png')) {
                 player = document.createElement('img');
             } else {
                 throw new Error('Unsupported file type');
             }
-            player.src = productDetails.signedUrl;
+            player.src = productDetails.file;
             player.controls = true;
         } else {
             player = document.createElement('img');
-            player.src = productDetails.previewUrl;
+            player.src = productDetails.image;
             player.addEventListener('click', async(event) => {
                 event.stopPropagation();
                 const loginResponse = await fetch(`${premiumServer}/login/${slug}`, {

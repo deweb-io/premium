@@ -3,9 +3,6 @@ const axios = require('axios');
 const jwt = require('fast-jwt');
 const wooCommerceApi = require('@woocommerce/woocommerce-rest-api');
 
-const db = require('./db.cjs');
-const storage = require('./storage.cjs');
-
 // Get the configuration from the environment.
 const STORE_BASE_URL = process.env.STORE_BASE_URL;
 const JWT_CERTS_URL = process.env.JWT_CERTS_URL;
@@ -59,7 +56,13 @@ const getProduct = async(slug) => {
     if(products.length === 0) {
         throw HttpError(404, `no product with slug ${slug}`);
     }
-    return products[0];
+    try {
+        return {
+            id: products[0].id, slug: products[0].slug, permalink: products[0].permalink,
+            image: products[0].images[0].src, file: products[0].downloads[0].file};
+    } catch(_) {
+        throw HttpError(406, `invalid product with slug ${slug}`);
+    }
 };
 
 // Check if a product has been purchased by a user.
@@ -71,25 +74,14 @@ const checkPurchase = async(wooCommerceProductId, wooCommerceCustomerId) => (awa
 
 // Get product access information by slug.
 const getProductAccess = async(slug, authToken) => {
-    let product = await getProduct(slug);
-
-    // Should be replaced with actual GCS path from the product.
-    const filePath = 'videbate/video.mp4';
-    product = {...product, ...(await db.getProduct(filePath))};
-
+    const product = await getProduct(slug);
     try {
         const customer = await getCustomer(await verifyAuth(authToken));
-        if(await checkPurchase(product.id, customer.id)) {
-            product.signedUrl = await storage.getSignedUrl(filePath);
-        } else {
+        if(!await checkPurchase(product.id, customer.id)) {
             throw new Error('unauthorized');
         }
     } catch(_) {
-        if(product.images.length > 0) {
-            product.previewUrl = product.images[0].src;
-        } else {
-            product.previewUrl = await storage.getPublicUrl(product.preview);
-        }
+        delete product.file;
     }
 
     return product;

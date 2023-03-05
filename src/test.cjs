@@ -15,36 +15,6 @@ describe('Database', () => {
     it('Health check', async() => {
         expect((await db.health())).to.equal('OK');
     });
-
-    it('Product retrieval', async() => {
-        try {
-            await db.getProduct('nosuchpath');
-            expect.fail();
-        } catch(error) {
-            expect(error.message).to.equal('no product with path nosuchpath');
-        }
-
-        const filePath = 'path/to/file';
-        await db.psql`INSERT INTO files (path, type, preview) VALUES (
-            ${filePath}, 'type', 'preview'
-        )`;
-        expect((await db.getProduct(filePath)).path).to.equal(filePath);
-    });
-});
-
-describe('Storage', () => {
-    const storage = require('./storage.cjs');
-
-    it('getPublicUrl', () => {
-        expect(storage.getPublicUrl('test')).to.equal(
-            'https://storage.googleapis.com/creator-eco-stage.appspot.com/test'
-        );
-    });
-
-    it('getSignedUrl', async() => {
-        const signedUrl = await storage.getSignedUrl('test');
-        expect(signedUrl.length).to.be.greaterThan(32);
-    });
 });
 
 describe('Mocked product retrieval', () => {
@@ -104,6 +74,9 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
     };
     const authCustomer = '3950249048075650071';
     const nonExistingCustomer = '404';
+    const slug = 'premium-video-test';
+    const nonExistingSlug = '404';
+    const invalidSlug = '406';
     const unauthSlug = '403';
     const authToken = jwt.createSigner({key: asymPrivateKey, header, algorithm: 'RS256'})({
         ...payload, blockchainId: [authCustomer]
@@ -114,36 +87,32 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
 
     // Mocks.
     const mockedList = {};
-    const storage = require('./storage.cjs');
-    const db = require('./db.cjs');
     const axios = require('axios');
     const wooCommerceRestApi = require('@woocommerce/woocommerce-rest-api');
 
     before(async() => {
-        // Mock storage.
-        mockedList.storage = {getPublicUrl: storage.getPublicUrl, getSignedUrl: storage.getSignedUrl};
-        storage.getPublicUrl = () => 'publicUrl';
-        storage.getSignedUrl = () => 'signedUrl';
-
-        // Mock db.
-        mockedList.db = {getProduct: db.getProduct};
-        db.getProduct = () => ({path: 'p', created: 'c', updated: 'u', type: 't', preview: 'p'});
-
         // Mock axios (for public key retrieval).
         mockedList.axios = {get: axios.get, post: axios.post};
         axios.get = () => ({data: {notTheKid: 'notTheKey', [header.kid]: asymPublicKey}});
         axios.post = () => ({data: {data: {jwt: 'jwt'}}});
 
         // Mock wooCommerce API caller.
+        const baseProduct = {id: 200, images: [{src: 'image'}], downloads: [{file: 'file'}]};
         mockedList.store = {wooCommerceRestApiDefault: wooCommerceRestApi.default};
         wooCommerceRestApi.default = class{
             constructor() {
                 this.get = (endpoint, args) => {
                     if(endpoint === 'customers' && args.email.startsWith(nonExistingCustomer)) return {data: []};
-                    if(endpoint === 'products' && args.slug === '404') return {data: []};
-                    if(endpoint === 'products' && args.slug === unauthSlug) return {data: [{id: unauthSlug}]};
-                    if(endpoint === 'orders' && args.product === unauthSlug) return {data: []};
-                    return {data: [{id: 200}]};
+                    if(endpoint === 'products') {
+                        if(args.slug === nonExistingSlug) return {data: []};
+                        if(args.slug === invalidSlug) return {data: [{bad: 'property'}]};
+                        if(args.slug === unauthSlug) return {data: [{...baseProduct, id: unauthSlug}]};
+                        return {data: [{id: 200, images: [{src: 'image'}], downloads: [{file: 'file'}]}]};
+                    }
+                    if(endpoint === 'orders') {
+                        if(args.product === unauthSlug) return {data: []};
+                    }
+                    return {data: [baseProduct]};
                 };
                 this.put = () => ({data: {id: 201}});
                 this.post = () => ({data: {id: 201}});
@@ -156,9 +125,6 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
 
     after(async() => {
         // Undo mocks.
-        storage.getPublicUrl = mockedList.storage.getPublicUrl;
-        storage.getSignedUrl = mockedList.storage.getSignedUrl;
-        db.getProduct = mockedList.db.getProduct;
         axios.get = mockedList.axios.get;
         axios.post = mockedList.axios.post;
         store.wooCommerceApi = mockedList.store.wooCommerceApi;
@@ -166,27 +132,30 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
     });
 
     describe('Store', async() => {
-        const slug = 'popover-heavyweight-hooded-sweatshirt-in-red/';
-
         it('Product retrieval', async() => {
             try {
-                await store.getProductAccess('404', authToken);
+                await store.getProductAccess(nonExistingSlug, authToken);
                 expect.fail();
             } catch(error) {
-                expect(error.message).to.equal('no product with slug 404');
+                expect(error.message).to.equal(`no product with slug ${nonExistingSlug}`);
             }
 
-            expect((await store.getProductAccess(slug, authToken)).signedUrl).to.equal('signedUrl');
-            expect((await store.getProductAccess(unauthSlug, authToken)).previewUrl).to.equal('publicUrl');
-            expect((await store.getProductAccess(slug, nonExistingToken)).previewUrl).to.equal('publicUrl');
-            expect((await store.getProductAccess(slug, 'bad token')).previewUrl).to.equal('publicUrl');
+            try {
+                await store.getProductAccess(invalidSlug, authToken);
+                expect.fail();
+            } catch(error) {
+                expect(error.message).to.equal(`invalid product with slug ${invalidSlug}`);
+            }
+
+            expect((await store.getProductAccess(slug, authToken)).file).to.equal('file');
+            expect((await store.getProductAccess(unauthSlug, authToken)).image).to.equal('image');
+            expect((await store.getProductAccess(slug, nonExistingToken)).image).to.equal('image');
+            expect((await store.getProductAccess(slug, 'bad token')).image).to.equal('image');
         }).timeout(10000);
     });
 
     describe('Web server', () => {
         let server;
-        const slug = 'slug';
-        const nonExistingSlug = '404';
 
         before(async() => {
             // Run with swagger.
