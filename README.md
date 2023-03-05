@@ -119,7 +119,7 @@ Note that the Premium UI uses the [bbs-common library](https://github.com/deweb-
 Set env variables in deployment/env.yaml.
 Set `deploy_env` in deployment/cloudRunDeploy.sh and run it.
 
-If deploying for the first time: 'PREMIUM_SERVICE_ENDPOINT' env is might not be known, so update after deploy.
+If deploying for the first time: 'PREMIUM_SERVICE_ENDPOINT' env might not be known, so update and re-deploy.
 
 ### Setup secrets
 Set the following secrets on GCP Secert Manager:
@@ -137,7 +137,13 @@ Add the secrets to cloud run service (exposed as environment variable) and redep
 * Verify deployment/env.yaml contains updated values for `PGHOST`, `PGPORT` and `PGDATABASE`.
 * Setup connection between 'cloud run' service to sql instance:
 https://towardsdatascience.com/how-to-connect-to-gcp-cloud-sql-instances-in-cloud-run-servies-1e60a908e8f2
+
+
 * Connect to remote DB from local environment:
     1. Add your ip to Authorized networks. 
     2. Set `PGHOST` to public ip of the postgres instance on GCP (and update other postgres related env if needed).
-    3. check connection: psql -h POSTGRES_PUBLIC_IP -U postgres -d `PGDATABASE`
+    3. check connection:
+        ```shell
+        psql -h POSTGRES_PUBLIC_IP -U postgres -d `PGDATABASE`
+        ```
+

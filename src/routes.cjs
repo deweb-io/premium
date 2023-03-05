@@ -30,8 +30,8 @@ module.exports = async(fastify, _) => {
     optionalTrailingSlash('get', '/product/:slug', {schema: {
         params: {slug: {type: 'string'}}
     }}, async(request, response) => response.type('application/javascript').send(parcelTemplate.replace(
-        'const slug = null;', `const slug = '${request.params.slug}';`).replace(
-        'const premiumServer = null;',
+        'const slug = null;', `const slug = '${request.params.slug}';`
+    ).replace('const premiumServer = null;',
         `const premiumServer = '${process.env.PREMIUM_SERVICE_ENDPOINT ?
             process.env.PREMIUM_SERVICE_ENDPOINT :
             `http://${process.env.FASTIFY_ADDRESS}:${process.env.FASTIFY_PORT}`}';`)
