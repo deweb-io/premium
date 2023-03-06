@@ -115,15 +115,35 @@ Note that the Premium UI uses the [bbs-common library](https://github.com/deweb-
 
 ## Deploy to GCP
 
-Set deploy env in `deployment/cloudRunDeploy.sh` and run it.
+### Quick deploy
+Set env variables in deployment/env.yaml.
+Set `deploy_env` in deployment/cloudRunDeploy.sh and run it.
 
-## Using Cloud SQL (postgres)
+If deploying for the first time: 'PREMIUM_SERVICE_ENDPOINT' env might not be known, so update and re-deploy.
 
-First, create instance on google cloud.
+### Setup secrets
+Set the following secrets on GCP Secert Manager:
+* `WOOCOMMERCE_CONSUMER_KEY`
+* `WOOCOMMERCE_CONSUMER_SECRET`
+* `PGUSERNAME`
+* `PGPASSWORD`
+* `GOOGLE_APPLICATION_CREDENTIALS`
 
-In order to allow connection from cloud run follow the following:
+Add the secrets to cloud run service (exposed as environment variable) and redeploy.
+
+### Cloud SQL (postgres)
+* Create instance on google cloud. (https://console.cloud.google.com/sql/instances)
+* Create database named as `PGDATABASE` (probably 'premium').
+* Verify deployment/env.yaml contains updated values for `PGHOST`, `PGPORT` and `PGDATABASE`.
+* Setup connection between 'cloud run' service to sql instance:
 https://towardsdatascience.com/how-to-connect-to-gcp-cloud-sql-instances-in-cloud-run-servies-1e60a908e8f2
 
-In order to connect to postgres from local during development:
-    1. add your ip to Authorized networks
-    2. set `PGHOST` to equal the public ip of the postgress instance on GCP (and update other postgres related env if needed).
+
+* Connect to remote DB from local environment:
+    1. Add your ip to Authorized networks. 
+    2. Set `PGHOST` to public ip of the postgres instance on GCP (and update other postgres related env if needed).
+    3. check connection:
+        ```shell
+        psql -h POSTGRES_PUBLIC_IP -U postgres -d `PGDATABASE`
+        ```
+

@@ -227,10 +227,21 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
         });
 
         it('Product player endpoint', async() => {
-            const playerResponse = await server.inject({method: 'GET', url: `/product/${slug}`});
+            process.env.FASTIFY_ADDRESS = '127.0.0.1';
+            process.env.FASTIFY_PORT = '8080';
+            let playerResponse = await server.inject({method: 'GET', url: `/product/${slug}`});
             expect(playerResponse.statusCode).to.equal(200);
             expect(playerResponse.headers['content-type'].startsWith('application/javascript')).to.be.true;
             expect(playerResponse.body).to.contain(`const slug = '${slug}';`);
+            expect(playerResponse.body).to.contain(
+                `const premiumServer = 'http://${process.env.FASTIFY_ADDRESS}:${process.env.FASTIFY_PORT}';`);
+
+            process.env.PREMIUM_SERVICE_ENDPOINT = 'https://premium-service-endpoint.com';
+            playerResponse = await server.inject({method: 'GET', url: `/product/${slug}`});
+            expect(playerResponse.body).to.contain(
+                `const premiumServer = '${process.env.PREMIUM_SERVICE_ENDPOINT}';`);
+            expect(playerResponse.body).to.not.contain(
+                `const premiumServer = 'http://${process.env.FASTIFY_ADDRESS}:${process.env.FASTIFY_PORT}';`);
         });
 
         it('Product authentication endpoint', async() => {
