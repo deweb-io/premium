@@ -19,7 +19,7 @@ The main components of the system are:
     * Let's the Premium Service query the Digital Store and find out if a specific user purchased a specific good
         * This is basic WooCommerce functionality, but we may need to enhance it to supprot bundles
     * Let's the Premium Service access the digital goods on behalf of the BBS user associated with the Digital Store user
-        * To do this, we will use a plugin that stores the digital goods on a GCS bucket which we own
+        * This is basic WooCommerce functionality, assuming the digital goods are available on a public URL
 * Core-UI - where users are offered digital goods and consume them
     * Let's users embed links to digital goods from the Digital Store
         * This is basic Core-UI functionality
@@ -44,6 +44,8 @@ The main components of the system are:
     1. Set `Allow Authentication` to `Yes` (top of `Authentication` in the plugin configuration menu).
     1. Check all `JWT Payload parameters` (middle of `Authentication` in the plugin configuration menu).
 1. Install other plugins and configure them - Yanis will go into further details.
+
+Important note: the version of WooCommerce that is hosted on WordPress.com stores the digital goods on public URLs. This is not the default for ordinary WooCommerce installations, and may not be the case in many future stores. While some stores provide an API for accessing the digital goods, the simplest mechanism we found is to use a plugin that stores the digital goods with a popular storage provider and have the Premium Service create signed URLs independently (an implementation of this solution can be found in the history of this repo).
 
 ### Core-UI Specifications
 
@@ -89,9 +91,6 @@ Create an `.env` file with some basic params:
 * `JWT_CERTS_URL`                   - URL for the public keys of the store module authenticaion JWT
 * `WOOCOMMERCE_CONSUMER_KEY`        - Authentication for WooCommerce REST API
 * `WOOCOMMERCE_CONSUMER_SECRET`     - Authentication for WooCommerce REST API
-* `GCP_PROJECT_ID`                  - The ID of the GCP project which owns the GCS bucket storing the digital goods
-* `GCP_BUCKET_NAME`                 - The name of the GCS bucket storing the digital goods
-* `GOOGLE_APPLICATION_CREDENTIALS`  - Credential JSON for accessing the bucket
 * `PGHOST`                          - Postgres host (defaults to localhost)
 * `PGPORT`                          - Postgres port (defualts to 5432)
 * `PGDATABASE`                      - Postgres database (schema) name (defaults to postgres)
