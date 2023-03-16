@@ -57,7 +57,6 @@ const getProduct = async(slug) => {
         throw HttpError(404, `no product with slug ${slug}`);
     }
     try {
-        // products[0].images[0].src and products[0].downloads[0].file might need extra validations.
         return {
             id: products[0].id, slug: products[0].slug, permalink: products[0].permalink,
             image: products[0].images[0].src, file: products[0].downloads[0].file,
