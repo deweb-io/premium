@@ -57,11 +57,26 @@ const getProduct = async(slug) => {
         throw HttpError(404, `no product with slug ${slug}`);
     }
     try {
+        // products[0].images[0].src and products[0].downloads[0].file might need extra validations.
         return {
             id: products[0].id, slug: products[0].slug, permalink: products[0].permalink,
-            image: products[0].images[0].src, file: products[0].downloads[0].file};
+            image: products[0].images[0].src, file: products[0].downloads[0].file,
+            bundledBy: products[0].bundled_by};
     } catch(_) {
         throw HttpError(406, `invalid product with slug ${slug}`);
+    }
+};
+
+const getProductById = async(id) => {
+    const product = await wooCommerce.get(`products/${id}`);
+    if(!product || !product.data) {
+        throw HttpError(404, `no product with id ${id}`);
+    }
+    try {
+        return {
+            id: product.data.id, slug: product.data.slug, bundledBy: product.data.bundled_by};
+    } catch(_) {
+        throw HttpError(406, `invalid product with id ${id}`);
     }
 };
 
@@ -77,7 +92,8 @@ const getProductAccess = async(slug, authToken) => {
     const product = await getProduct(slug);
     try {
         const customer = await getCustomer(await verifyAuth(authToken));
-        if(!await checkPurchase(product.id, customer.id)) {
+        if(!await checkPurchase(
+            product.bundledBy && product.bundledBy.length > 0 ? product.bundledBy[0] : product.id, customer.id)) {
             throw new Error('unauthorized');
         }
     } catch(_) {
@@ -127,11 +143,24 @@ const getLoginUrl = async(slug, authToken) => {
         })).data.data.jwt;
         return [
             `${STORE_BASE_URL}/?rest_route=/simple-jwt-login/v1/autologin&JWT=${token}`,
-            `&redirectUrl=${encodeURIComponent(`${STORE_BASE_URL}/product/${slug}`)}`
+            `&redirectUrl=${encodeURIComponent(`${STORE_BASE_URL}/product/${await getBundledBySlug(slug)}`)}`
         ].join('');
     } catch(_) {
-        return `${STORE_BASE_URL}/product/${slug}`;
+        return `${STORE_BASE_URL}/product/${await getBundledBySlug(slug)}`;
     }
 };
 
-exports = module.exports = {getProductAccess, getLoginUrl, wooCommerce};
+const getBundledBySlug = async(slug) => {
+    const product = await getProduct(slug);
+    if(product.bundledBy && product.bundledBy.length > 0) {
+        try {
+            const productBundle = await getProductById(product.bundledBy[0]);
+            return productBundle.slug;
+        } catch(_) {
+            console.log(`invalid product bundle with id ${product.bundledBy[0]}`);
+        }
+    }
+    return slug;
+};
+
+exports = module.exports = {getProductAccess, getLoginUrl, getBundledBySlug, wooCommerce};

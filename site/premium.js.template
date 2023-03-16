@@ -25,7 +25,7 @@
                 player = document.createElement('video');
             } else if(productDetails.file.endsWith('.mp3')) {
                 player = document.createElement('audio');
-            } else if(productDetails.file.endsWith('.jpg') || productDetails.file.endsWith('.png')) {
+            } else if(productDetails.file.endsWith('.jpg') || productDetails.file.endsWith('.jpeg') || productDetails.file.endsWith('.png')) {
                 player = document.createElement('img');
             } else {
                 throw new Error('Unsupported file type');
