@@ -43,7 +43,12 @@ The main components of the system are:
     1. Check `Allow redirect to a specific URL if redirectUrl is present in the request` (bottom of `Login` in the plugin configuration menu).
     1. Set `Allow Authentication` to `Yes` (top of `Authentication` in the plugin configuration menu).
     1. Check all `JWT Payload parameters` (middle of `Authentication` in the plugin configuration menu).
-1. Install other plugins and configure them - Yanis will go into further details.
+1. Install [WooCommerce Stripe Gateway](https://wordpress.org/plugins/woocommerce-gateway-stripe/) version 7.2.0 - enables stripe as a payment gateway.
+    1. Navigate to Settings -> Woocommerce -> Payments
+        1. Enable 'Stripe – Credit Card (Stripe)'.
+        1. Set API keys and enable stripe (Enable test mode if needed).
+1. Install [Subscriptions For WooCommerce](https://wordpress.org/plugins/subscriptions-for-woocommerce/) version 1.4.8 - enables selling subscriptions.
+1. Install [WooCommerce Product Bundles](https://woocommerce.com/products/product-bundles/) - version 6.8.12 - enables selling product bundles.
 
 Important note: the version of WooCommerce that is hosted on WordPress.com stores the digital goods on public URLs. This is not the default for ordinary WooCommerce installations, and may not be the case in many future stores. While some stores provide an API for accessing the digital goods, the simplest mechanism we found is to use a plugin that stores the digital goods with a popular storage provider and have the Premium Service create signed URLs independently (an implementation of this solution can be found in the history of this repo).
 
