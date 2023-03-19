@@ -50,6 +50,13 @@ const getCustomer = async(bbsId) => {
     return customers[0];
 };
 
+// Extract the relevant data from a WooCommerce product, validating it.
+const extractProductData = (product) => {
+    return {
+        id: product.id, slug: product.slug, permalink: product.permalink,
+        image: product.images[0].src, file: product.downloads[0].file, bundleId: product.bundled_by[0]};
+};
+
 // Get a WooCommerce product by slug.
 const getProduct = async(slug) => {
     const products = (await wooCommerce.get('products', {slug})).data;
@@ -57,25 +64,22 @@ const getProduct = async(slug) => {
         throw HttpError(404, `no product with slug ${slug}`);
     }
     try {
-        return {
-            id: products[0].id, slug: products[0].slug, permalink: products[0].permalink,
-            image: products[0].images[0].src, file: products[0].downloads[0].file,
-            bundledBy: products[0].bundled_by};
+        return extractProductData(products[0]);
     } catch(_) {
         throw HttpError(406, `invalid product with slug ${slug}`);
     }
 };
 
-const getProductById = async(id) => {
-    const product = await wooCommerce.get(`products/${id}`);
-    if(!product || !product.data) {
-        throw HttpError(404, `no product with id ${id}`);
-    }
+// Get a WooCommerce product slug by ID.
+const getSlug = async(id) => {
     try {
-        return {
-            id: product.data.id, slug: product.data.slug, bundledBy: product.data.bundled_by};
+        const slug = (await wooCommerce.get(`products/${id}`)).data.slug;
+        if(!slug) {
+            throw new Error('missing slug');
+        }
+        return slug;
     } catch(_) {
-        throw HttpError(406, `invalid product with id ${id}`);
+        throw HttpError(404, `no product with id ${id}`);
     }
 };
 
@@ -86,20 +90,22 @@ const checkPurchase = async(wooCommerceProductId, wooCommerceCustomerId) => (awa
     status: 'completed'
 })).data.length > 0;
 
-// Get product access information by slug.
+// Get product information by slug, taking access into account
+// (i.e. removing private data if the user hasn't purchased the product).
+// Note: this only checks for purchases of the bundle, not the individual product.
 const getProductAccess = async(slug, authToken) => {
     const product = await getProduct(slug);
+    // We don't want to wait with this.
+    const slugPromise = getSlug(product.bundleId);
     try {
         const customer = await getCustomer(await verifyAuth(authToken));
-        if(!await checkPurchase(
-            product.bundledBy && product.bundledBy.length > 0 ? product.bundledBy[0] : product.id, customer.id)) {
+        if(!await checkPurchase(product.bundleId, customer.id)) {
             throw new Error('unauthorized');
         }
     } catch(_) {
         delete product.file;
     }
-
-    return product;
+    return {...product, bundleSlug: await slugPromise};
 };
 
 // Upsert a bbs user as a WooCommerce customer with a fresh password.
@@ -142,24 +148,11 @@ const getLoginUrl = async(slug, authToken) => {
         })).data.data.jwt;
         return [
             `${STORE_BASE_URL}/?rest_route=/simple-jwt-login/v1/autologin&JWT=${token}`,
-            `&redirectUrl=${encodeURIComponent(`${STORE_BASE_URL}/product/${await getBundledBySlug(slug)}`)}`
+            `&redirectUrl=${encodeURIComponent(`${STORE_BASE_URL}/product/${slug}`)}`
         ].join('');
     } catch(_) {
-        return `${STORE_BASE_URL}/product/${await getBundledBySlug(slug)}`;
+        return `${STORE_BASE_URL}/product/${slug}`;
     }
 };
 
-const getBundledBySlug = async(slug) => {
-    const product = await getProduct(slug);
-    if(product.bundledBy && product.bundledBy.length > 0) {
-        try {
-            const productBundle = await getProductById(product.bundledBy[0]);
-            return productBundle.slug;
-        } catch(_) {
-            console.log(`invalid product bundle with id ${product.bundledBy[0]}`);
-        }
-    }
-    return slug;
-};
-
-exports = module.exports = {getProductAccess, getLoginUrl, getBundledBySlug, wooCommerce};
+exports = module.exports = {getSlug, getProductAccess, getLoginUrl, wooCommerce};

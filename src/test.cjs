@@ -77,6 +77,7 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
     const slug = 'premium-video-test';
     const nonExistingSlug = '404';
     const invalidSlug = '406';
+    const noParentSlug = 'no-parent';
     const unauthSlug = '403';
     const authToken = jwt.createSigner({key: asymPrivateKey, header, algorithm: 'RS256'})({
         ...payload, blockchainId: [authCustomer]
@@ -97,7 +98,10 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
         axios.post = () => ({data: {data: {jwt: 'jwt'}}});
 
         // Mock wooCommerce API caller.
-        const baseProduct = {id: 200, images: [{src: 'image'}], downloads: [{file: 'file'}]};
+        const baseProduct = {
+            id: 200, slug: 'slug', permalink: 'permalink',
+            images: [{src: 'image'}], downloads: [{file: 'file'}], bundled_by: [200]
+        };
         mockedList.store = {wooCommerceRestApiDefault: wooCommerceRestApi.default};
         wooCommerceRestApi.default = class{
             constructor() {
@@ -106,9 +110,12 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
                     if(endpoint === 'products') {
                         if(args.slug === nonExistingSlug) return {data: []};
                         if(args.slug === invalidSlug) return {data: [{bad: 'property'}]};
-                        if(args.slug === unauthSlug) return {data: [{...baseProduct, id: unauthSlug}]};
-                        return {data: [{id: 200, images: [{src: 'image'}], downloads: [{file: 'file'}]}]};
+                        if(args.slug === noParentSlug) return {data: [{...baseProduct, bundled_by: [nonExistingSlug]}]};
+                        if(args.slug === unauthSlug) return {data: [{...baseProduct, bundled_by: [unauthSlug]}]};
                     }
+                    if(endpoint === `products/${nonExistingSlug}`) return {data: {...baseProduct, slug: false}};
+                    if(endpoint === `products/${unauthSlug}`) return {data: {...baseProduct, slug: unauthSlug}};
+                    if(endpoint.startsWith('products/')) return {data: baseProduct};
                     if(endpoint === 'orders') {
                         if(args.product === unauthSlug) return {data: []};
                     }
@@ -145,6 +152,13 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
                 expect.fail();
             } catch(error) {
                 expect(error.message).to.equal(`invalid product with slug ${invalidSlug}`);
+            }
+
+            try {
+                await store.getProductAccess(noParentSlug, authToken);
+                expect.fail();
+            } catch(error) {
+                expect(error.message).to.equal(`no product with id ${nonExistingSlug}`);
             }
 
             expect((await store.getProductAccess(slug, authToken)).file).to.equal('file');
