@@ -77,6 +77,7 @@ const getSlug = async(id) => {
         if(!slug) {
             throw new Error('missing slug');
         }
+        return slug;
     } catch(_) {
         throw HttpError(404, `no product with id ${id}`);
     }
@@ -154,4 +155,4 @@ const getLoginUrl = async(slug, authToken) => {
     }
 };
 
-exports = module.exports = {getProductAccess, getLoginUrl, wooCommerce};
+exports = module.exports = {getSlug, getProductAccess, getLoginUrl, wooCommerce};
