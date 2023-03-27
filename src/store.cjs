@@ -10,6 +10,8 @@ const WOOCOMMERCE_CONSUMER_KEY = process.env.WOOCOMMERCE_CONSUMER_KEY;
 const WOOCOMMERCE_CONSUMER_SECRET = process.env.WOOCOMMERCE_CONSUMER_SECRET;
 const WOOCOMMERCE_API_VERSION = 'wc/v3';
 
+const SUBSCRIPTION_NAME_DELIMITER = '_';
+
 // An http status code aware error.
 const HttpError = (statusCode, message) => {
     const error = new Error(message);
@@ -43,7 +45,10 @@ const verifyAuth = async(authToken) => {
 
 // Get a WooCommerce customer by BBS ID that is the email.
 const getCustomer = async(bbsId) => {
-    const customers = (await wooCommerce.get('customers', {email: `${bbsId}@bbs.network`})).data;
+    // Users that are logged in via our link are subscribers
+    // Might need to support other roles in the future
+    // https://woocommerce.com/posts/a-guide-to-woocommerce-user-roles-permissions-and-security/
+    const customers = (await wooCommerce.get('customers', {email: `${bbsId}@bbs.network`, role: 'subscriber'})).data;
     if(customers.length === 0) {
         throw HttpError(404, `no customer with BBS ID ${bbsId}`);
     }
@@ -54,7 +59,8 @@ const getCustomer = async(bbsId) => {
 const extractProductData = (product) => {
     return {
         id: product.id, slug: product.slug, permalink: product.permalink,
-        image: product.images[0].src, file: product.downloads[0].file, bundleId: product.bundled_by[0]};
+        image: product.images[0].src, file: product.downloads.length > 0 ? product.downloads[0].file : undefined,
+        subscriptionSlug: product.slug.slice(0, product.slug.indexOf(SUBSCRIPTION_NAME_DELIMITER))};
 };
 
 // Get a WooCommerce product by slug.
@@ -84,28 +90,35 @@ const getSlug = async(id) => {
 };
 
 // Check if a product has been purchased by a user.
-const checkPurchase = async(wooCommerceProductId, wooCommerceCustomerId) => (await wooCommerce.get('orders', {
-    product: wooCommerceProductId,
-    customer: wooCommerceCustomerId,
-    status: 'completed'
-})).data.length > 0;
+const checkPurchase = async(wooCommerceProductId, wooCommerceCustomerId) => {
+    const order = await wooCommerce.get('orders', {product: wooCommerceProductId, customer: wooCommerceCustomerId,
+        status: 'completed'});
+    const orderId = order.data.length > 0 ? order.data[0].id : undefined;
+    if(!orderId) {
+        return false;
+    }
+
+    // Validate subscription is active.
+    // Note: the api doesn't filter by parent_id as expected, so we have to do it manually.
+    const activeSubscriptions = (await wooCommerce.get('subscriptions', {'status': 'active'})).data;
+    return (activeSubscriptions.filter((subscription) => subscription.parent_id === orderId)).length > 0;
+};
 
 // Get product information by slug, taking access into account
 // (i.e. removing private data if the user hasn't purchased the product).
 // Note: this only checks for purchases of the bundle, not the individual product.
 const getProductAccess = async(slug, authToken) => {
     const product = await getProduct(slug);
-    // We don't want to wait with this.
-    const slugPromise = getSlug(product.bundleId);
+    const subscriptionId = (await getProduct(product.subscriptionSlug)).id;
     try {
         const customer = await getCustomer(await verifyAuth(authToken));
-        if(!await checkPurchase(product.bundleId, customer.id)) {
+        if(!await checkPurchase(subscriptionId, customer.id)) {
             throw new Error('unauthorized');
         }
     } catch(_) {
         delete product.file;
     }
-    return {...product, bundleSlug: await slugPromise};
+    return {...product};
 };
 
 // Upsert a bbs user as a WooCommerce customer with a fresh password.
