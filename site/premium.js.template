@@ -41,7 +41,7 @@
             player.src = productDetails.image;
             player.addEventListener('click', async(event) => {
                 event.stopPropagation();
-                const loginResponse = await fetch(`${premiumServer}/login/${productDetails.bundleSlug}`, {
+                const loginResponse = await fetch(`${premiumServer}/login/${productDetails.subscriptionSlug}`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({authToken})
