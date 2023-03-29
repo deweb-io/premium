@@ -58,16 +58,18 @@ const getCustomer = async(bbsId) => {
 // Extract the relevant data from a WooCommerce product.
 // This function also validates the data, because if there is anything missing we will get an error.
 const extractProductData = (product) => {
-    const productData = {
+    const productDataBase = {
         id: product.id, slug: product.slug, permalink: product.permalink,
-        image: product.images[0].src, file: product.downloads[0].file
+        image: product.images[0].src
     };
 
+    // if the product is part of a subscription, extract the subscription slug and file
     if(product.slug.indexOf(SUBSCRIPTION_NAME_DELIMITER) > -1) {
-        productData['subscriptionSlug'] = product.slug.slice(0, product.slug.indexOf(SUBSCRIPTION_NAME_DELIMITER));
+        productDataBase['subscriptionSlug'] = product.slug.slice(0, product.slug.indexOf(SUBSCRIPTION_NAME_DELIMITER));
+        productDataBase['file'] = product.downloads[0].file;
     }
 
-    return productData;
+    return productDataBase;
 };
 
 // Get a WooCommerce product by slug.
