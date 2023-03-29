@@ -55,11 +55,12 @@ const getCustomer = async(bbsId) => {
     return customers[0];
 };
 
-// Extract the relevant data from a WooCommerce product, validating it.
+// Extract the relevant data from a WooCommerce product.
+// This function also validates the data, because if there is anything missing we will get an error.
 const extractProductData = (product) => {
     const productData = {
         id: product.id, slug: product.slug, permalink: product.permalink,
-        image: product.images[0].src, file: product.downloads.length > 0 ? product.downloads[0].file : undefined
+        image: product.images[0].src, file: product.downloads[0].file
     };
 
     if(product.slug.indexOf(SUBSCRIPTION_NAME_DELIMITER) > -1) {

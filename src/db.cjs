@@ -1,8 +1,6 @@
 // Database initialization and access.
-const dotenv = require('dotenv');
 const postgres = require('postgres');
 
-dotenv.config();
 const psql = postgres({transform: postgres.toCamel});
 
 // Database initialization.

@@ -217,6 +217,19 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
             server.register(require('./routes.cjs'));
         });
 
+        it('Verify environment variables', async() => {
+            const originalPremiumServiceEndpoint = process.env.PREMIUM_SERVICE_ENDPOINT;
+            process.env.PREMIUM_SERVICE_ENDPOINT = '';
+            delete require.cache[require.resolve('./routes.cjs')];
+            try {
+                require('./routes.cjs');
+                expect.fail();
+            } catch(error) {
+                expect(error.message).to.equal('missing environment variable PREMIUM_SERVICE_ENDPOINT');
+            }
+            process.env.PREMIUM_SERVICE_ENDPOINT = originalPremiumServiceEndpoint;
+        });
+
         it('Static endpoints', async() => {
             let response;
             response = await server.inject({method: 'GET', url: '/nosuchpath'});
@@ -249,14 +262,11 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
         });
 
         it('Product player endpoint', async() => {
-            process.env.FASTIFY_ADDRESS = '127.0.0.1';
-            process.env.FASTIFY_PORT = '8080';
             let playerResponse = await server.inject({method: 'GET', url: `/product/${validSlug}`});
             expect(playerResponse.statusCode).to.equal(200);
             expect(playerResponse.headers['content-type'].startsWith('application/javascript')).to.be.true;
             expect(playerResponse.body).to.contain(`const slug = '${validSlug}';`);
-            expect(playerResponse.body).to.contain(
-                `const premiumServer = 'http://${process.env.FASTIFY_ADDRESS}:${process.env.FASTIFY_PORT}';`);
+            expect(playerResponse.body).to.contain('const premiumServer = \'http');
 
             process.env.PREMIUM_SERVICE_ENDPOINT = 'https://premium-service-endpoint.com';
             playerResponse = await server.inject({method: 'GET', url: `/product/${validSlug}`});
