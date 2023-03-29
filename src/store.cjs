@@ -57,10 +57,16 @@ const getCustomer = async(bbsId) => {
 
 // Extract the relevant data from a WooCommerce product, validating it.
 const extractProductData = (product) => {
-    return {
+    const productData = {
         id: product.id, slug: product.slug, permalink: product.permalink,
-        image: product.images[0].src, file: product.downloads.length > 0 ? product.downloads[0].file : undefined,
-        subscriptionSlug: product.slug.slice(0, product.slug.indexOf(SUBSCRIPTION_NAME_DELIMITER))};
+        image: product.images[0].src, file: product.downloads.length > 0 ? product.downloads[0].file : undefined
+    };
+
+    if(product.slug.indexOf(SUBSCRIPTION_NAME_DELIMITER) > -1) {
+        productData['subscriptionSlug'] = product.slug.slice(0, product.slug.indexOf(SUBSCRIPTION_NAME_DELIMITER));
+    }
+
+    return productData;
 };
 
 // Get a WooCommerce product by slug.
@@ -73,19 +79,6 @@ const getProduct = async(slug) => {
         return extractProductData(products[0]);
     } catch(_) {
         throw HttpError(406, `invalid product with slug ${slug}`);
-    }
-};
-
-// Get a WooCommerce product slug by ID.
-const getSlug = async(id) => {
-    try {
-        const slug = (await wooCommerce.get(`products/${id}`)).data.slug;
-        if(!slug) {
-            throw new Error('missing slug');
-        }
-        return slug;
-    } catch(_) {
-        throw HttpError(404, `no product with id ${id}`);
     }
 };
 
@@ -106,13 +99,16 @@ const checkPurchase = async(wooCommerceProductId, wooCommerceCustomerId) => {
 
 // Get product information by slug, taking access into account
 // (i.e. removing private data if the user hasn't purchased the product).
-// Note: this only checks for purchases of the bundle, not the individual product.
+// Note: this only checks for purchases of the subscription, not the individual product.
 const getProductAccess = async(slug, authToken) => {
-    const product = await getProduct(slug);
-    const subscriptionId = (await getProduct(product.subscriptionSlug)).id;
+    const [product, bbsId] = await Promise.all([getProduct(slug), verifyAuth(authToken)]);
     try {
-        const customer = await getCustomer(await verifyAuth(authToken));
-        if(!await checkPurchase(subscriptionId, customer.id)) {
+        if(!product.subscriptionSlug) {
+            throw new Error(`slug ${slug} is not part of a subscription`);
+        }
+
+        const [subscription, customer] = await Promise.all([getProduct(product.subscriptionSlug), getCustomer(bbsId)]);
+        if(!await checkPurchase(subscription.id, customer.id)) {
             throw new Error('unauthorized');
         }
     } catch(_) {
@@ -168,4 +164,4 @@ const getLoginUrl = async(slug, authToken) => {
     }
 };
 
-exports = module.exports = {getSlug, getProductAccess, getLoginUrl, wooCommerce};
+exports = module.exports = {getProductAccess, getLoginUrl, wooCommerce};

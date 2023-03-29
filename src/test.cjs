@@ -72,13 +72,24 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
         exp: Math.floor(Date.now() / 1000) + (60 * 60),
         iat: Math.floor(Date.now() / 1000)
     };
+    const subsNameDelimiter = '_';
     const authCustomer = '3950249048075650071';
+    const customerId = '123';
+    const subsOrderId = '1002334';
     const nonExistingCustomer = '404';
-    const slug = 'premium-video-test';
+
+    // Subscriptions.
+    const subsProductSlug = 'subscription';
+    const notPurchedSubscription = 'not-purchased-subscription';
+
+    // Slugs.
+    const validSlug = `${subsProductSlug}${subsNameDelimiter}premium-video-test`;
+    const notPurchasedSlug = `${notPurchedSubscription}${subsNameDelimiter}premium-video-test`;
+    const unauthSlug = '403';
     const nonExistingSlug = '404';
     const invalidSlug = '406';
     const noParentSlug = 'no-parent';
-    const unauthSlug = '403';
+
     const authToken = jwt.createSigner({key: asymPrivateKey, header, algorithm: 'RS256'})({
         ...payload, blockchainId: [authCustomer]
     });
@@ -99,25 +110,48 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
 
         // Mock wooCommerce API caller.
         const baseProduct = {
-            id: 200, slug: 'slug', permalink: 'permalink',
-            images: [{src: 'image'}], downloads: [{file: 'file'}], bundled_by: [200]
+            id: 200, slug: validSlug, permalink: 'permalink',
+            images: [{src: 'image'}], downloads: [{file: 'file'}]
         };
+
+        // We need specific product IDs for the tests, and creating more products might be more readable.
+        const subsProduct = {
+            id: 100, slug: subsProductSlug, permalink: 'permalink',
+            images: [{src: 'image'}], downloads: [{file: 'file'}]
+        };
+
+        const subsProductNotPurched = {
+            id: 101, slug: notPurchedSubscription, permalink: 'permalink',
+            images: [{src: 'image'}], downloads: [{file: 'file'}]
+        };
+
         mockedList.store = {wooCommerceRestApiDefault: wooCommerceRestApi.default};
         wooCommerceRestApi.default = class{
             constructor() {
                 this.get = (endpoint, args) => {
-                    if(endpoint === 'customers' && args.email.startsWith(nonExistingCustomer)) return {data: []};
+                    if(endpoint === 'customers') {
+                        if(args.email.startsWith(nonExistingCustomer)) return {data: []};
+                        if(args.email.startsWith(authCustomer)) return {data: [{id: customerId}]};
+                    }
                     if(endpoint === 'products') {
                         if(args.slug === nonExistingSlug) return {data: []};
                         if(args.slug === invalidSlug) return {data: [{bad: 'property'}]};
-                        if(args.slug === noParentSlug) return {data: [{...baseProduct, bundled_by: [nonExistingSlug]}]};
-                        if(args.slug === unauthSlug) return {data: [{...baseProduct, bundled_by: [unauthSlug]}]};
+                        if(args.slug === noParentSlug) return {data: [{...baseProduct, slug: noParentSlug}]};
+                        if(args.slug === unauthSlug) return {data: [{...baseProduct}]};
+                        if(args.slug === subsProductSlug) return {data: [{...subsProduct}]};
+                        if(args.slug === notPurchasedSlug) return {data: [{...baseProduct, slug: notPurchasedSlug}]};
+                        if(args.slug === notPurchedSubscription) return {data: [{...subsProductNotPurched}]};
                     }
                     if(endpoint === `products/${nonExistingSlug}`) return {data: {...baseProduct, slug: false}};
                     if(endpoint === `products/${unauthSlug}`) return {data: {...baseProduct, slug: unauthSlug}};
                     if(endpoint.startsWith('products/')) return {data: baseProduct};
                     if(endpoint === 'orders') {
                         if(args.product === unauthSlug) return {data: []};
+                        if(args.product === subsProductNotPurched.id) return {data: []};
+                        if(args.product === subsProduct.id) return {data: [{id: subsOrderId}]};
+                    }
+                    if(endpoint === 'subscriptions') {
+                        return {data: [{parent_id: subsOrderId}]};
                     }
                     return {data: [baseProduct]};
                 };
@@ -155,16 +189,21 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
             }
 
             try {
-                await store.getProductAccess(noParentSlug, authToken);
+                await store.getProductAccess(validSlug, 'bad token');
                 expect.fail();
             } catch(error) {
-                expect(error.message).to.equal(`no product with id ${nonExistingSlug}`);
+                expect(error.message).to.equal('invalid auth token');
             }
 
-            expect((await store.getProductAccess(slug, authToken)).file).to.equal('file');
+            expect((await store.getProductAccess(validSlug, authToken)).subscriptionSlug).to.equal(subsProductSlug);
+            expect((await store.getProductAccess(validSlug, nonExistingToken)).image).to.equal('image');
+            expect((await store.getProductAccess(validSlug, authToken)).file).to.equal('file');
+
+            expect((await store.getProductAccess(noParentSlug, authToken)).subscriptionSlug).to.equal(undefined);
             expect((await store.getProductAccess(unauthSlug, authToken)).image).to.equal('image');
-            expect((await store.getProductAccess(slug, nonExistingToken)).image).to.equal('image');
-            expect((await store.getProductAccess(slug, 'bad token')).image).to.equal('image');
+
+            expect((await store.getProductAccess(notPurchasedSlug, authToken)).file).to.equal(undefined);
+            expect((await store.getProductAccess(notPurchasedSlug, authToken)).image).to.equal('image');
         }).timeout(10000);
     });
 
@@ -212,15 +251,15 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
         it('Product player endpoint', async() => {
             process.env.FASTIFY_ADDRESS = '127.0.0.1';
             process.env.FASTIFY_PORT = '8080';
-            let playerResponse = await server.inject({method: 'GET', url: `/product/${slug}`});
+            let playerResponse = await server.inject({method: 'GET', url: `/product/${validSlug}`});
             expect(playerResponse.statusCode).to.equal(200);
             expect(playerResponse.headers['content-type'].startsWith('application/javascript')).to.be.true;
-            expect(playerResponse.body).to.contain(`const slug = '${slug}';`);
+            expect(playerResponse.body).to.contain(`const slug = '${validSlug}';`);
             expect(playerResponse.body).to.contain(
                 `const premiumServer = 'http://${process.env.FASTIFY_ADDRESS}:${process.env.FASTIFY_PORT}';`);
 
             process.env.PREMIUM_SERVICE_ENDPOINT = 'https://premium-service-endpoint.com';
-            playerResponse = await server.inject({method: 'GET', url: `/product/${slug}`});
+            playerResponse = await server.inject({method: 'GET', url: `/product/${validSlug}`});
             expect(playerResponse.body).to.contain(
                 `const premiumServer = '${process.env.PREMIUM_SERVICE_ENDPOINT}';`);
             expect(playerResponse.body).to.not.contain(
@@ -237,7 +276,7 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
             const originalGetProductAccess = store.getProductAccess;
             store.getProductAccess = () => ({});
             detailsResponse = await server.inject({
-                method: 'POST', url: `/product/${slug}`, payload: {authToken}
+                method: 'POST', url: `/product/${validSlug}`, payload: {authToken}
             });
             expect(detailsResponse.statusCode).to.equal(200);
             expect(detailsResponse.headers['content-type'].startsWith('application/json')).to.be.true;
@@ -246,14 +285,14 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
 
         it('Login endpoint', async() => {
             let linkResponse;
-            linkResponse = await server.inject({method: 'POST', url: `/login/${slug}`, payload: {authToken}});
+            linkResponse = await server.inject({method: 'POST', url: `/login/${validSlug}`, payload: {authToken}});
             expect(linkResponse.statusCode).to.equal(200);
             linkResponse = await server.inject({
-                method: 'POST', url: `/login/${slug}`, payload: {authToken: nonExistingToken}
+                method: 'POST', url: `/login/${validSlug}`, payload: {authToken: nonExistingToken}
             });
             expect(linkResponse.statusCode).to.equal(200);
             linkResponse = await server.inject({
-                method: 'POST', url: `/login/${slug}`, payload: {authToken: ''}
+                method: 'POST', url: `/login/${validSlug}`, payload: {authToken: ''}
             });
             expect(linkResponse.statusCode).to.equal(200);
         }).timeout(5000);
