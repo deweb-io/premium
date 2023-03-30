@@ -25,7 +25,11 @@
                 player = document.createElement('video');
             } else if(productDetails.file.endsWith('.mp3')) {
                 player = document.createElement('audio');
-            } else if(productDetails.file.endsWith('.jpg') || productDetails.file.endsWith('.png')) {
+            } else if(
+                productDetails.file.endsWith('.jpg') ||
+                productDetails.file.endsWith('.jpeg') ||
+                productDetails.file.endsWith('.png')
+            ) {
                 player = document.createElement('img');
             } else {
                 throw new Error('Unsupported file type');
@@ -37,12 +41,11 @@
             player.src = productDetails.image;
             player.addEventListener('click', async(event) => {
                 event.stopPropagation();
-                const loginResponse = await fetch(`${premiumServer}/login/${slug}`, {
+                const loginResponse = await fetch(`${premiumServer}/login/${productDetails.subscriptionSlug}`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({authToken})
                 });
-                console.log(loginResponse);
                 if(loginResponse.status === 200) {
                     window.open((await loginResponse.json()).url, '_blank');
                 }

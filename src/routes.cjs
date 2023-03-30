@@ -1,6 +1,19 @@
 // Fastify routes.
 const fs = require('fs');
 
+const dotenv = require('dotenv');
+
+dotenv.config();
+for(const requiredEnvironmentVariable of [
+    'STORE_BASE_URL', 'WOOCOMMERCE_CONSUMER_KEY', 'WOOCOMMERCE_CONSUMER_SECRET',
+    'PREMIUM_SERVICE_ENDPOINT', 'JWT_CERTS_URL'
+]) {
+    console.log(`Checking for ${requiredEnvironmentVariable}...`);
+    if(!process.env[requiredEnvironmentVariable]) {
+        throw new Error(`missing environment variable ${requiredEnvironmentVariable}`);
+    }
+}
+
 const db = require('./db.cjs');
 const store = require('./store.cjs');
 
@@ -31,12 +44,7 @@ module.exports = async(fastify, _) => {
         params: {slug: {type: 'string'}}
     }}, async(request, response) => response.type('application/javascript').send(parcelTemplate.replace(
         'const slug = null;', `const slug = '${request.params.slug}';`
-    ).replace('const premiumServer = null;',
-        `const premiumServer = '${process.env.PREMIUM_SERVICE_ENDPOINT ?
-            process.env.PREMIUM_SERVICE_ENDPOINT :
-            `http://${process.env.FASTIFY_ADDRESS}:${process.env.FASTIFY_PORT}`}';`)
-    ));
-
+    ).replace('const premiumServer = null;', `const premiumServer = '${process.env.PREMIUM_SERVICE_ENDPOINT}';`)));
 
     // Get product details for a given slug and auth token (which will include a signed URL if authorized).
     optionalTrailingSlash('post', '/product/:slug', {schema: {
