@@ -32,6 +32,10 @@ const wooCommerce = new Proxy({}, {get(target, property) {
 
 // Verify the auth token and return the decoded data.
 const verifyAuth = async(authToken) => {
+    if(process.env.JWT_POLICY === 'fake') {
+        console.warn('not verifying JWT');
+        return authToken;
+    }
     try {
         return jwt.createVerifier({
             key: (await axios.get(JWT_CERTS_URL)).data[
@@ -63,7 +67,7 @@ const extractProductData = (product) => {
         image: product.images[0].src
     };
 
-    // if the product is part of a subscription, extract the subscription slug and file
+    // if the product is part of a subscription, extract the subscription slug and file.
     if(product.slug.indexOf(SUBSCRIPTION_NAME_DELIMITER) > -1) {
         productDataBase['subscriptionSlug'] = product.slug.slice(0, product.slug.indexOf(SUBSCRIPTION_NAME_DELIMITER));
         productDataBase['file'] = product.downloads[0].file;
@@ -87,10 +91,13 @@ const getProduct = async(slug) => {
 
 // Check if a product has been purchased by a user.
 const checkPurchase = async(wooCommerceProductId, wooCommerceCustomerId) => {
-    const order = await wooCommerce.get('orders', {product: wooCommerceProductId, customer: wooCommerceCustomerId,
-        status: 'completed'});
-    const orderId = order.data.length > 0 ? order.data[0].id : undefined;
-    if(!orderId) {
+    const orders = (await wooCommerce.get('orders', {
+        product: wooCommerceProductId, customer: wooCommerceCustomerId, status: 'completed'
+    })).data;
+    let orderId;
+    try {
+        orderId = orders[0].id;
+    } catch(_) {
         return false;
     }
 
@@ -109,7 +116,6 @@ const getProductAccess = async(slug, authToken) => {
         if(!product.subscriptionSlug) {
             throw new Error(`slug ${slug} is not part of a subscription`);
         }
-
         const [subscription, customer] = await Promise.all([getProduct(product.subscriptionSlug), getCustomer(bbsId)]);
         if(!await checkPurchase(subscription.id, customer.id)) {
             throw new Error('unauthorized');

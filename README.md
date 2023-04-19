@@ -1,8 +1,8 @@
 # Premium Plugin Service
 
-A BBS Core-UI plugin to handle premium content.
+A BBS Core UI plugin to handle premium content.
 
-This plugin is, in fact, an integration between the Core-UI and an external multi-vendor/tenant digital-goods marketplace.
+This plugin is, essentially, an integration between the Core UI and an external multi-vendor/tenant digital-goods marketplace.
 
 We chose to use WooCommerce as an external store, but any store that can sell digital goods and has a decent API can be supported. The exact requirements are detailed below.
 
@@ -17,25 +17,27 @@ The main components of the system are:
     * Let's the Premium Service associate BBS users to Digital Store users
         * To do this, we use the WooCommerce API to create Digital Store users that the Premium Service manages, and to generate auto-login URLs for them
     * Let's the Premium Service query the Digital Store and find out if a specific user purchased a specific good
-        * This is basic WooCommerce functionality, but we may need to enhance it to supprot bundles
+        * This is basic WooCommerce functionality, which we enhance to supprot bundles
     * Let's the Premium Service access the digital goods on behalf of the BBS user associated with the Digital Store user
         * This is basic WooCommerce functionality, assuming the digital goods are available on a public URL
-* Core-UI - where users are offered digital goods and consume them
+* Core UI - where users are offered digital goods and consume them
     * Let's users embed links to digital goods from the Digital Store
-        * This is basic Core-UI functionality
-    * Let's domain owners enable the Premium Service for the domain
-        * Does this already exist, or does it need to be developed? Remember that since we don't have plugin meta-data in the post, and we don't want to send parameters in the request for the Premium UI, we need to extrapolate the address of the Single SPA package from the embed link, which should be part of the configuration
+        * This is basic Core UI functionality
+    * Let's domain owners enable the Premium Service plugin for the domain
+        * We will need to develop this (probably a simple whitelist of domains, each identifying a plugin)
     * Let's community admins enable the Premium Service for the board (or for specific users on the board)
-        * This needs to be developed, and can probably wait for a later phase
+        * This needs to be developed, and can probably wait for a later phase (probably a permission mask for each plugin, specifying if the plugin is available to all publishers, only to partners, only to content admins, or disabled)
     * Loads the Premium Service for embedded links when the plugin is enabled
-        * This is done with our existing Single SPA mechanism, and a crude version can be found in and `premium` branch on our Core-UI repo
-* Premium Service - which integrates the Core-UI and the Digital Store
-    * Provides a UI for accessing goods from the Digital Store which the Core-UI can load
+        * The Web app does this with our existing Single SPA mechanism, and a crude version can be found in and `premium` branch on our Core UI repo
+        * The mobile app does this by loading an HTML document that loads the same Single SPA pachage as the Web app into a flutter InAppWebView plugin
+* Premium Service - which integrates the Core UI and the Digital Store
+    * Provides a UI for accessing goods from the Digital Store which the Core UI can load
 
-### Digital Store Specifications
+### Digital Store Setup
 
 1. Install [WordPress](https://wordpress.org/) - this is the platform running the store's site.
 1. Install [WooCommerce](https://woocommerce.com/) version 7.4.0 - this is a plugin that turns WordPress into a digital store.
+1. Install [WooCommerce Subscriptions](https://woocommerce.com/products/woocommerce-subscriptions/) version 5.0.0 - enables selling subscriptions.
 1. Install [Simple JWT Login](https://wordpress.org/plugins/simple-jwt-login/) version 3.5.0 - let's us generate auto-login URLs.
     1. Enter a strong `JWT Decryption` Key (`General-3` in the plugin configuration menu).
     1. Set `Get JWT token from` to `1. REQUEST` only (just below `General-3` in the plugin configuration menu).
@@ -43,6 +45,21 @@ The main components of the system are:
     1. Check `Allow redirect to a specific URL if redirectUrl is present in the request` (bottom of `Login` in the plugin configuration menu).
     1. Set `Allow Authentication` to `Yes` (top of `Authentication` in the plugin configuration menu).
     1. Check all `JWT Payload parameters` (middle of `Authentication` in the plugin configuration menu).
+1. Install [WPCode](https://wordpress.org/plugins/insert-headers-and-footers/) version 2.0.10 - let's us dynamically generate OG tags for products, which tell the Core UI where to find the Premium UI.
+    1. Click the `+ Add Snippet` link in the `Code Snippets` menu.
+    1. Hover over the `Add Your Custom Code (New Snippet)` block and click the `Use snippet` button that appears.
+    1. Set `Code Type` to `PHP Snippet`.
+    1. Paste the following code in the text area, setting `base_url` to the root of your running Premium Service:
+        ```php
+        base_url = 'http://localhost:8000';
+        function add_meta_tag() {
+            if(is_product()) {
+                echo '<meta property="og:embed:url" content="' . base_url . '/product/' . get_post(get_the_ID())->post_name . '"/>';
+            }
+        }
+        add_action( 'wp_head', 'add_meta_tags', 5 );
+        ```
+    1. Set the snippet's state to `active` and click the `Update` button (you may need to wait a few minutes for the change to take effect).
 1. Install [Dokan Business](https://wedevs.com/dokan/) version v3.7.17 - This plugin supports multivendor and stripe split payment.
     1. Navigate to Dokan -> Settings -> Selling options:
         1. Set comission type.
@@ -61,33 +78,32 @@ The main components of the system are:
         1. Set new checkout page as the checkout page:
             1. Navigate to Settings -> WooCommerce -> Advanced
                 1. Page setup -> Checkout page -> choose the ID of the new created page.
-1. Install [WooCommerce Subscriptions](https://woocommerce.com/products/woocommerce-subscriptions/) version 5.0.0 - enables selling subscriptions.
 
 
-Important note: the version of WooCommerce that is hosted on WordPress.com stores the digital goods on public URLs. This is not the default for ordinary WooCommerce installations, and may not be the case in many future stores. While some stores provide an API for accessing the digital goods, the simplest mechanism we found is to use a plugin that stores the digital goods with a popular storage provider and have the Premium Service create signed URLs independently (an implementation of this solution can be found in the history of this repo).
+Important note: the version of WooCommerce that is hosted on WordPress.com stores the digital goods on public URLs. This is not the default for ordinary WooCommerce installations, and may not be the case in the future. While some stores provide an API for accessing the digital goods, the simplest mechanism we found is to use a plugin that stores the digital goods with a popular storage provider and have the Premium Service create signed URLs independently (an implementation of this solution can be found in the history of this repo).
 
-### Core-UI Specifications
+### Core UI Specifications
 
-The Premium Service integration should work similarly to Youtube video embedding, in that the posting user is expected to upload the premium digital asset to the Digital Store from an independent domain and insert the obtained link into a post. The only interaction between the Core-UI and the Premium Service occurs when viewing posts that contain such links.
+The Premium Service integration should work similarly to Youtube video embedding, in that the posting user is expected to upload the premium digital asset to the Digital Store from an independent domain and insert the obtained link into a post. The only interaction between the Core UI and the Premium Service occurs when viewing posts that contain such links.
 
-The links are in the form `https://<Digital Store>/product/<slug>` (the slug is a human readable string identifying the product). When such a link is rendered inside a post, and the plugin is enabled, the Core-UI simply mounts a Single SPA parcel from `https://<Premium Service>/product/<slug>` and the Premium Service does the rest.
+The links are in the form `https://<Digital Store>/product/<slug>` (the slug is a human readable string identifying the product). The link points to an HTML document with an `og:embed:url` tag which specifies the location of the Premium UI (served by the Premium Service) which can render the content of the link (`https://<Premium Service>/product/<slug>` in our case). When such a link is rendered inside a post and the plugin is enabled, the Core UI simply mounts the Premium UI, which is a Single SPA parcel, from the Premium Service and lets the Premium Service do the rest (the Web app already has the ability to mount Single SPA parcels, and the mobile app will require a thin adapter layer, basically an empty HTML which can mount a Single SPA parcel - there may be a flutter plugin that already does that).
 
-In order for the Premium Service to authenticate the BBS user running the Core-UI, the Premium UI parcel requires access to a signed auth token. For this purpose the `premium` branch of our Core-UI repo exposes the Firebase auth token through the `window.deWeb.getFirebaseIdToken` function, but we can also transfer it through a POST request when loading the parcel.
+In order for the Premium Service to authenticate the BBS user running the Core UI, the Premium UI parcel requires access to the signed Firebase auth token. This token has to be passed to the Premium UI as a parameter to the `mount` function call (this means adding it to Single SPA's props).
 
 ### Premium Service Specifications
 
 The service exposes the following endpoints:
-* `GET:/health` - checks if everything is fine and dandy, so the Core-UI can disable the plugin if the service is unhealthy, and even notify the user)
-* `GET:/product/<slug>` - returns a Single SPA compatible JS package (an AMD module which defines the Single SPA lifecycle stages) that deploys an interface for viewing the digital good or its preview, depending on whether the logged in user has purchased it or not (this allows for seamless integration with the Core-UI Web app, and the mobile UI simply opens an iframe with the Web app)
-* `POST:/product/<slug> (authToken)` - returns a JSON with the asset's details, including a preview image and a signed URL to the asset if the authtoken is valid and identifies an authorized user
+* `GET:/health` - checks if everything is fine and dandy, so the Core UI can disable the plugin if the service is unhealthy, and even notify the user)
+* `GET:/product/<slug>` - returns a Single SPA compatible JS package (an AMD module which defines the Single SPA lifecycle stages) that deploys an interface for viewing the digital good or its preview, depending on whether the logged in user has purchased it or not
+* `POST:/product/<slug> (authToken)` - returns a JSON with the asset's details, including a preview image and a signed URL to the asset if the auth token is valid and identifies an authorized user (a user with an active subscription covering the product)
 * `POST:/login/<slug> (authToken)` - returns a URL that performs automatic login to the Digital Store on the wanted digital good
 * `GET:/site/<path>` - serves static assets for convenience when developing (will get removed in production)
 
 ### The Full View Flow
 
-1. The user views a post.
-1. Core-UI identifies a linkTool with a link matching the pattern in the configuration and fetches the Premium UI from the Premium Service, passing it the product slug as part of the request URL, and mounts it.
-    1. The Premium UI loads the bbs-common library and uses it to get the user's Firebase auth token.
+1. The user views a post with a link matching the configuration.
+1. Core UI identifies the link, with its `og:embed:url` tag, and fetches the Premium UI from the Premium Service, automatically passing it the product slug as part of the request URL.
+1. Core UI mounts the Premium UI by calling the `mount` function, passing it the Firebase auth token.
     1. The Premium UI passes the Premium Service the product slug and the auth token.
     1. The Premium Service verifies the token, and checks if the matching customer in the store has purchased the digital good.
     1. The Premium Service returns the details of the digital good, including a link to the digital good if the customer has purchased it in the past.
@@ -100,7 +116,7 @@ The service exposes the following endpoints:
 
 ## Running Locally
 
-Except for the service itself, running on Node 18, you will need to run a PostgreSQL RDBMS, which we will use for storing BI data, access to a GCS bucket on which the digital goods are stored, and an online WooCommerce site as described above.
+Except for the service itself, running on Node 18, you will need to run a PostgreSQL RDBMS, which we will use for storing BI data and an online WooCommerce site as described above.
 
 Create an `.env` file with some basic params:
 * `FASTIFY_ADDRESS`                 - Host to serve from (defaults to 127.0.0.1)
@@ -127,9 +143,9 @@ npm run start       # Run the Web server in production mode (with all checks)
 npm run dev         # Run the Web server in debug mode (auto reload and swagger enabled)
 ```
 
-Once you run a server, you can access `/site/dev.html` which loads the `/site/premium.js.template` package as if it's a Single SPA component. If you have access to the `CreatorApp` repository you can run the `premium` branch and paste product links into posts and view them.
+Once you run a server, you can access `/site/dev.html?slug=<product slug>&authToken=<valid Firebase auth token>` which loads the Premium UI as a Single SPA component. To assist development, you may want to set your `JWT_POLICY` environment variable to `'fake'`. This will result in accepting any string as a valid and signed JWT. The username associated (the user's unique blockchain ID) will be the JWT string itself (so the link above turns into `/site/dev.html?slug=<product slug>&authToken=<user>`).
 
-Note that the Premium UI uses the [bbs-common library](https://github.com/deweb-io/bbs-common/), available on npm. If no local copy is found, it will fetch the latest version from [jsdelivr](https://cdn.jsdelivr.net/npm/@dewebio/bbs-common@latest/index.min.js). For convenience, you can keep a local copy on `site/bbs-common.js` which will be used instead.
+Also note that while we usually use `fastify-cli` to launch the server, there is also a minimal script to launches it at `/src/launch.cjs`. It can come in handy when you are trying to isolate problems and for conveniently running a debugger from your IDE.
 
 ## Deploy to GCP
 
@@ -156,7 +172,6 @@ Add the secrets to cloud run service (exposed as environment variable) and redep
 * Setup connection between 'cloud run' service to sql instance:
 https://towardsdatascience.com/how-to-connect-to-gcp-cloud-sql-instances-in-cloud-run-servies-1e60a908e8f2
 
-
 * Connect to remote DB from local environment:
     1. Add your ip to Authorized networks. 
     2. Set `PGHOST` to public ip of the postgres instance on GCP (and update other postgres related env if needed).
@@ -164,4 +179,3 @@ https://towardsdatascience.com/how-to-connect-to-gcp-cloud-sql-instances-in-clou
         ```shell
         psql -h POSTGRES_PUBLIC_IP -U postgres -d `PGDATABASE`
         ```
-

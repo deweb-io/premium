@@ -2,33 +2,25 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Premium Service Testing</title>
+    <title>Premium Content Player</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
 </head>
 <body>
     <div id="premium"></div>
-    <div id="control">
-        <input id="slug"></input>
-        <textarea id="authToken"></textarea>
-        <button id="show">show</button></div>
     <script>
         // Load the Premium UI like a Core-UI and a boss.
         const show = (slug, authToken) => {
-            // Plant the google auth token in the global scope, just like the Core-UI does at the moment.
-            window.deWeb = {getFirebaseIdToken: () => new Promise((resolve) => resolve(authToken))};
-
-            // Load premium.js and mount it as a SSPA package.
+            // Load premium.js and mount it as a SSPA package, with the `premium` div and the `authToken` as parameters.
             requirejs([`/product/${slug}`], (premium) => {
-                premium.mount({domElement: document.getElementById('premium')});
+                premium.mount({domElement: document.getElementById('premium'), authToken});
             });
         }
 
-        // Let the developer control the file path and auth token - currently defaulting to hard-coded values.
-        const slugInput = document.getElementById('slug');
-        const authTokenTextArea = document.getElementById('authToken');
-        document.getElementById('show').addEventListener('click', () => {
-            show(slugInput.value, authTokenTextArea.value);
-        });
+        // Allow auth token and slug to be passed in as a query parameter for easy testing.
+        const urlParams = new URLSearchParams(window.location.search);
+        if(urlParams.has('slug') && urlParams.has('authToken')) {
+            show(urlParams.get('slug'), urlParams.get('authToken'));
+        }
     </script>
 </body>
 </html>
