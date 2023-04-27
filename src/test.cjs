@@ -204,6 +204,11 @@ zK2SMbteSrCu5XhvtbKCa+NJfCgeVxSQYBmahH/A2V96RZITfAe+KOq1V9tnJB4a
 
             expect((await store.getProductAccess(notPurchasedSlug, authToken)).file).to.equal(undefined);
             expect((await store.getProductAccess(notPurchasedSlug, authToken)).image).to.equal('image');
+
+            // Test our fake JWT mode.
+            process.env.JWT_POLICY = 'fake';
+            expect((await store.getProductAccess(validSlug, authCustomer)).file).to.equal('file');
+            process.env.JWT_POLICY = 'real';
         }).timeout(10000);
     });
 
