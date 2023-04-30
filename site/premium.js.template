@@ -2,20 +2,9 @@
 (async() => {
     // This will be replaced by the server.
     const premiumServer = null;
+    if(!premiumServer) throw new Error('premiumServer is not defined');
     const slug = null;
     if(!slug) throw new Error('slug is not defined');
-
-    // Try to import bbs-common from our server, defaulting to the CDN if that fails.
-    const getBbsCommon = async() => {
-        let isRemote = false;
-        const bbs = await import(`${premiumServer}/site/bbs-common.js`).catch(() => {
-            isRemote = true;
-            return import('https://cdn.jsdelivr.net/npm/@dewebio/bbs-common@latest/index.min.js');
-        });
-        console.info(`bbs-common library loaded from ${isRemote ? 'remote CDN' : 'local file'}`, bbs);
-
-        return bbs;
-    };
 
     // Get the right player.
     const makePlayer = async(productDetails, authToken) => {
@@ -55,24 +44,29 @@
     };
 
     // Show the player UI in the given domElement.
-    const show = async(domElement) => {
-        const bbs = await getBbsCommon();
-        const authToken = await bbs.getAuthToken();
-        const productDetails = await (await fetch(`${premiumServer}/product/${slug}`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({authToken})
-        })).json();
-        const ui = document.createElement('div');
-        ui.appendChild(await makePlayer(productDetails, authToken));
-        domElement.appendChild(ui);
+    const show = async(domElement, authToken) => {
+        try {
+            const productDetails = await (await fetch(`${premiumServer}/product/${slug}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({authToken})
+            })).json();
+            if(productDetails.error) throw new Error(productDetails.error);
+            const ui = document.createElement('div');
+            ui.appendChild(await makePlayer(productDetails, authToken));
+            domElement.appendChild(ui);
+        } catch(error) {
+            console.error(error);
+            domElement.textContent = error.message;
+            throw error;
+        }
     };
 
     // Define Single SPA lifecycle entry points as AMD modules.
     define({
         mount: async(sspaArgs) => new Promise((resolve, reject) => {
             try {
-                show(sspaArgs.domElement).then(resolve).catch(reject);
+                show(sspaArgs.domElement, sspaArgs.authToken).then(resolve).catch(reject);
             } catch(error) {
                 console.error(error);
                 sspaArgs.domElement.textContent = error.message;

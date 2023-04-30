@@ -12,7 +12,7 @@
     "coverage": "npx c8 --100 --exclude src/test.cjs npm run test",
     "serve": "npx fastify start ./src/routes.cjs",
     "start": "npm run lint && npm run coverage && npm run serve",
-    "dev": "sh -c 'FASTIFY_LOG_LEVEL=debug FASTIFY_WATCH=true FASTIFY_SWAGGER=true npm run serve'"
+    "dev": "sh -c 'FASTIFY_LOG_LEVEL=debug FASTIFY_WATCH=true FASTIFY_SWAGGER=true npm --node-options --inspect run serve'"
   },
   "engines": {
     "node": "18"
