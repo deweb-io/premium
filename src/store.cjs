@@ -49,10 +49,9 @@ const verifyAuth = async(authToken) => {
 
 // Get a WooCommerce customer by BBS ID that is the email.
 const getCustomer = async(bbsId) => {
-    // Users that are logged in via our link are subscribers
     // Might need to support other roles in the future
     // https://woocommerce.com/posts/a-guide-to-woocommerce-user-roles-permissions-and-security/
-    const customers = (await wooCommerce.get('customers', {email: `${bbsId}@bbs.network`, role: 'subscriber'})).data;
+    const customers = (await wooCommerce.get('customers', {email: `${bbsId}@bbs.network`})).data;
     if(customers.length === 0) {
         throw HttpError(404, `no customer with BBS ID ${bbsId}`);
     }
