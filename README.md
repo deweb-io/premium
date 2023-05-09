@@ -1,6 +1,6 @@
 # Premium Plugin Service
 
-A BBS Core UI plugin to handle premium content.
+A BBS Content Rendering plugin to handle premium content.
 
 This plugin is, essentially, an integration between the Core UI and an external multi-vendor/tenant digital-goods marketplace.
 
@@ -79,14 +79,13 @@ The main components of the system are:
             1. Navigate to Settings -> WooCommerce -> Advanced
                 1. Page setup -> Checkout page -> choose the ID of the new created page.
 
-
 Important note: the version of WooCommerce that is hosted on WordPress.com stores the digital goods on public URLs. This is not the default for ordinary WooCommerce installations, and may not be the case in the future. While some stores provide an API for accessing the digital goods, the simplest mechanism we found is to use a plugin that stores the digital goods with a popular storage provider and have the Premium Service create signed URLs independently (an implementation of this solution can be found in the history of this repo).
 
 ### Core UI Specifications
 
 The Premium Service integration should work similarly to Youtube video embedding, in that the posting user is expected to upload the premium digital asset to the Digital Store from an independent domain and insert the obtained link into a post. The only interaction between the Core UI and the Premium Service occurs when viewing posts that contain such links.
 
-The links are in the form `https://<Digital Store>/product/<slug>` (the slug is a human readable string identifying the product). The link points to an HTML document with an `og:embed:url` tag which specifies the location of the Premium UI (served by the Premium Service) which can render the content of the link (`https://<Premium Service>/product/<slug>` in our case). When such a link is rendered inside a post and the plugin is enabled, the Core UI simply mounts the Premium UI, which is a Single SPA parcel, from the Premium Service and lets the Premium Service do the rest (the Web app already has the ability to mount Single SPA parcels, and the mobile app will require a thin adapter layer, basically an empty HTML which can mount a Single SPA parcel - there may be a flutter plugin that already does that).
+The links are in the form `https://<Digital Store>/product/<slug>` (the slug is a human readable string identifying the product). The link points to an HTML document with an `og:embed:url` tag which specifies the location of the Premium UI (served by the Premium Service) which can render the content of the link (`https://<Premium Service>/product/<slug>` in our case). When such a link is rendered inside a post and the plugin is enabled, the Core UI simply mounts the Premium UI, which is a Single SPA parcel, from the Premium Service and lets the Premium Service do the rest (the Web app already has the ability to mount Single SPA parcels, and the mobile app will require a thin adapter layer, basically an bare HTML which can mount a Single SPA parcel - there may be a flutter plugin that already does that, and a working example can be found at `/site/dev.html`).
 
 In order for the Premium Service to authenticate the BBS user running the Core UI, the Premium UI parcel requires access to the signed Firebase auth token. This token has to be passed to the Premium UI as a parameter to the `mount` function call (this means adding it to Single SPA's props).
 
@@ -96,25 +95,32 @@ The service exposes the following endpoints:
 * `GET:/health` - checks if everything is fine and dandy, so the Core UI can disable the plugin if the service is unhealthy, and even notify the user)
 * `GET:/product/<slug>` - returns a Single SPA compatible JS package (an AMD module which defines the Single SPA lifecycle stages) that deploys an interface for viewing the digital good or its preview, depending on whether the logged in user has purchased it or not
 * `POST:/product/<slug> (authToken)` - returns a JSON with the asset's details, including a preview image and a signed URL to the asset if the auth token is valid and identifies an authorized user (a user with an active subscription covering the product)
-* `POST:/login/<slug> (authToken)` - returns a URL that performs automatic login to the Digital Store on the wanted digital good
+* `POST:/login/<slug> (authToken)` - returns a URL that performs automatic login to the Digital Store on the subscription page of the wanted digital good
 * `GET:/site/<path>` - serves static assets for convenience when developing (will get removed in production)
 
-### The Full View Flow
+### Flows
+* Authoring
+    1. Vendor signs up as to the external store, filling in their Stripe details.
+    1. Vendor creates a subscription product.
+    1. Vendor creates individual digital-good products with names fitting the pattern `<subscription product slug>_<individual product identifier>`.
+* Publishing
+    1. An authorized community member publishes a post which includes a link to his product page (a page on the external store).
+    1. The Core UI verifies that the publishing user has permissions to use the plugin and creates a `plugin` block, keeping the URL provided in the link's `og:embed:url` tag as part of the plugin data.
+* Viewing
+    1. The user views a post with a link matching the configuration.
+    1. Core UI identifies the plugin block, with the Premium Service URL (fetched from the link's `og:embed:url` tag during the edit phase that is not detailed here), and fetches the Premium UI from the Premium Service, automatically passing it the product slug as part of the request URL.
+    1. Core UI mounts the Premium UI by calling the `mount` function, passing it the Firebase auth token.
+        1. The Premium UI passes the Premium Service the product slug and the auth token.
+        1. The Premium Service verifies the token, and checks if the matching customer in the store has purchased the digital good.
+        1. The Premium Service returns the details of the digital good, including a link to the digital good if the customer has purchased it in the past.
+    1. If a link to the digital good is found, the Premium UI displays it and the user is happy. Otherwise, the Premium UI displays the preview image and listens for a click on it.
+    1. When the user clicks the preview:
+        1. The Premium UI passes the Premium Service the product slug and the auth token (again).
+        1. The Premium Service verifies the token and checks the store for a matching customer, creating one if necessary.
+        1. The Premium Service gets an auto-login link from the store and returns it to the Premium UI.
+    1. The Premium UI opens the auto-login link, and opens a new browser window on the product page, in which the customer can purchase the digital good.
 
-1. The user views a post with a link matching the configuration.
-1. Core UI identifies the link, with its `og:embed:url` tag, and fetches the Premium UI from the Premium Service, automatically passing it the product slug as part of the request URL.
-1. Core UI mounts the Premium UI by calling the `mount` function, passing it the Firebase auth token.
-    1. The Premium UI passes the Premium Service the product slug and the auth token.
-    1. The Premium Service verifies the token, and checks if the matching customer in the store has purchased the digital good.
-    1. The Premium Service returns the details of the digital good, including a link to the digital good if the customer has purchased it in the past.
-1. If a link to the digital good is found, the Premium UI displays it and the user is happy. Otherwise, the Premium UI displays the preview image and listens for a click on it.
-1. When the user clicks the preview:
-    1. The Premium UI passes the Premium Service the product slug and the auth token (again).
-    1. The Premium Service verifies the token and checks the store for a matching customer, creating one if necessary.
-    1. The Premium Service gets an auto-login link from the store and returns it to the Premium UI.
-1. The Premium UI opens the auto-login link, and opens a new browser window on the product page, in which the customer can purchase the digital good.
-
-## Running Locally
+## Running the Service Locally
 
 Except for the service itself, running on Node 18, you will need to run a PostgreSQL RDBMS, which we will use for storing BI data and an online WooCommerce site as described above.
 
@@ -147,15 +153,17 @@ Once you run a server, you can access `/site/dev.html?slug=<product slug>&authTo
 
 Also note that while we usually use `fastify-cli` to launch the server, there is also a minimal script to launches it at `/src/launch.cjs`. It can come in handy when you are trying to isolate problems and for conveniently running a debugger from your IDE.
 
-## Deploy to GCP
+## Deploying the Service to GCP
 
 ### Quick deploy
+
 Set env variables in deployment/env.yaml.
 Set `deploy_env` in deployment/cloudRunDeploy.sh and run it.
 
 If deploying for the first time: 'PREMIUM_SERVICE_ENDPOINT' env might not be known, so update and re-deploy.
 
 ### Setup secrets
+
 Set the following secrets on GCP Secert Manager:
 * `WOOCOMMERCE_CONSUMER_KEY`
 * `WOOCOMMERCE_CONSUMER_SECRET`
@@ -166,6 +174,7 @@ Set the following secrets on GCP Secert Manager:
 Add the secrets to cloud run service (exposed as environment variable) and redeploy.
 
 ### Cloud SQL (postgres)
+
 * Create instance on google cloud. (https://console.cloud.google.com/sql/instances)
 * Create database named as `PGDATABASE` (probably 'premium').
 * Verify deployment/env.yaml contains updated values for `PGHOST`, `PGPORT` and `PGDATABASE`.
