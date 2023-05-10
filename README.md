@@ -49,15 +49,14 @@ The main components of the system are:
     1. Click the `+ Add Snippet` link in the `Code Snippets` menu.
     1. Hover over the `Add Your Custom Code (New Snippet)` block and click the `Use snippet` button that appears.
     1. Set `Code Type` to `PHP Snippet`.
-    1. Paste the following code in the text area, setting `base_url` to the root of your running Premium Service:
+    1. Paste the following code in the text area, setting `Premium Service Base URL` to the root of your running Premium Service:
         ```php
-        base_url = 'http://localhost:8000';
         function add_meta_tag() {
             if(is_product()) {
-                echo '<meta property="og:embed:url" content="' . base_url . '/product/' . get_post(get_the_ID())->post_name . '"/>';
+                echo '<meta name="twitter:player" content="http://<Premium Service Base URL>/product/' . get_post(get_the_ID())->post_name . '"/>';
             }
         }
-        add_action( 'wp_head', 'add_meta_tags', 5 );
+        add_action('wp_head', 'add_meta_tag', 5);
         ```
     1. Set the snippet's state to `active` and click the `Update` button (you may need to wait a few minutes for the change to take effect).
 1. Install [Dokan Business](https://wedevs.com/dokan/) version v3.7.17 - This plugin supports multivendor and stripe split payment.
@@ -85,18 +84,21 @@ Important note: the version of WooCommerce that is hosted on WordPress.com store
 
 The Premium Service integration should work similarly to Youtube video embedding, in that the posting user is expected to upload the premium digital asset to the Digital Store from an independent domain and insert the obtained link into a post. The only interaction between the Core UI and the Premium Service occurs when viewing posts that contain such links.
 
-The links are in the form `https://<Digital Store>/product/<slug>` (the slug is a human readable string identifying the product). The link points to an HTML document with an `og:embed:url` tag which specifies the location of the Premium UI (served by the Premium Service) which can render the content of the link (`https://<Premium Service>/product/<slug>` in our case). When such a link is rendered inside a post and the plugin is enabled, the Core UI simply mounts the Premium UI, which is a Single SPA parcel, from the Premium Service and lets the Premium Service do the rest (the Web app already has the ability to mount Single SPA parcels, and the mobile app will require a thin adapter layer, basically an bare HTML which can mount a Single SPA parcel - there may be a flutter plugin that already does that, and a working example can be found at `/site/dev.html`).
+The URL that is copied from the external store is in the form `https://<Digital Store>/product/<slug>` (the slug is a human readable string identifying the product), and it points to an HTML document with a `twitter:player` tag which specifies the location of the Premium UI (served by the Premium Service) which can be used to render it: `https://<Premium Service>/product/<slug>`. The Premium UI is a standard Single SPA parcel, which can be easily mounted by the Core UI whenever the post is viewed if the plugin is enabled.
 
-In order for the Premium Service to authenticate the BBS user running the Core UI, the Premium UI parcel requires access to the signed Firebase auth token. This token has to be passed to the Premium UI as a parameter to the `mount` function call (this means adding it to Single SPA's props).
+The Web app already has the ability to mount Single SPA parcels, and the mobile app will require a thin adapter layer, basically an bare HTML which can mount a Single SPA parcel - there may be a flutter plugin that already does that, and a working example can be found at `/site/dev.html`. In order for the Premium Service to authenticate the BBS user running the Core UI, the Premium UI parcel requires access to the signed Firebase auth token. This token has to be passed to the Premium UI as a parameter to the `mount` function call (this means adding it to Single SPA's props).
 
 ### Premium Service Specifications
 
 The service exposes the following endpoints:
-* `GET:/health` - checks if everything is fine and dandy, so the Core UI can disable the plugin if the service is unhealthy, and even notify the user)
+* `GET:/health` - checks if everything is fine and dandy, so the Core UI can disable the plugin if the service is unhealthy and possibly notify the user
 * `GET:/product/<slug>` - returns a Single SPA compatible JS package (an AMD module which defines the Single SPA lifecycle stages) that deploys an interface for viewing the digital good or its preview, depending on whether the logged in user has purchased it or not
+
 * `POST:/product/<slug> (authToken)` - returns a JSON with the asset's details, including a preview image and a signed URL to the asset if the auth token is valid and identifies an authorized user (a user with an active subscription covering the product)
 * `POST:/login/<slug> (authToken)` - returns a URL that performs automatic login to the Digital Store on the subscription page of the wanted digital good
 * `GET:/site/<path>` - serves static assets for convenience when developing (will get removed in production)
+
+Note that the first two endpoints are used by the Core UI, while the last three endpoints are only used by the Premium UI (once it's loaded by the Core UI).
 
 ### Flows
 * Authoring
@@ -105,10 +107,10 @@ The service exposes the following endpoints:
     1. Vendor creates individual digital-good products with names fitting the pattern `<subscription product slug>_<individual product identifier>`.
 * Publishing
     1. An authorized community member publishes a post which includes a link to his product page (a page on the external store).
-    1. The Core UI verifies that the publishing user has permissions to use the plugin and creates a `plugin` block, keeping the URL provided in the link's `og:embed:url` tag as part of the plugin data.
+    1. The Core UI verifies that the publishing user has permissions to use the plugin and creates a `plugin` block, keeping the URL provided in the link's `twitter:player` tag as part of the plugin data.
 * Viewing
     1. The user views a post with a link matching the configuration.
-    1. Core UI identifies the plugin block, with the Premium Service URL (fetched from the link's `og:embed:url` tag during the edit phase that is not detailed here), and fetches the Premium UI from the Premium Service, automatically passing it the product slug as part of the request URL.
+    1. Core UI identifies the plugin block, with the Premium Service URL (fetched from the link's `twitter:player` tag during the edit phase that is not detailed here), and fetches the Premium UI from the Premium Service, automatically passing it the product slug as part of the request URL.
     1. Core UI mounts the Premium UI by calling the `mount` function, passing it the Firebase auth token.
         1. The Premium UI passes the Premium Service the product slug and the auth token.
         1. The Premium Service verifies the token, and checks if the matching customer in the store has purchased the digital good.
@@ -129,9 +131,9 @@ Create an `.env` file with some basic params:
 * `FASTIFY_PORT`                    - Port to serve from (defaults to 8000)
 * `FASTIFY_SWAGGER`                 - Serve swagger-UI from `/doc` (defaults to false)
 * `STORE_BASE_URL`                  - Base URL of the Digital Store
-* `JWT_CERTS_URL`                   - URL for the public keys of the store module authenticaion JWT
-* `WOOCOMMERCE_CONSUMER_KEY`        - Authentication for WooCommerce REST API
-* `WOOCOMMERCE_CONSUMER_SECRET`     - Authentication for WooCommerce REST API
+* `JWT_CERTS_URL`                   - URL for the public keys of the store module authenticaion JWT (for Firebase tokens this is usually `https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com`)
+* `WOOCOMMERCE_CONSUMER_KEY`        - Authentication for WooCommerce REST API (obtained from the WooCommerce admin interface)
+* `WOOCOMMERCE_CONSUMER_SECRET`     - Authentication for WooCommerce REST API (obtained from the WooCommerce admin interface)
 * `PGHOST`                          - Postgres host (defaults to localhost)
 * `PGPORT`                          - Postgres port (defualts to 5432)
 * `PGDATABASE`                      - Postgres database (schema) name (defaults to postgres)
@@ -146,7 +148,7 @@ npm run test        # Run tests
 npm run coverage    # Run tests and check coverage
 npm run serve       # Run the Web server
 npm run start       # Run the Web server in production mode (with all checks)
-npm run dev         # Run the Web server in debug mode (auto reload and swagger enabled)
+npm run dev         # Run the Web server in debug mode (node-inspector, auto reload and swagger enabled)
 ```
 
 Once you run a server, you can access `/site/dev.html?slug=<product slug>&authToken=<valid Firebase auth token>` which loads the Premium UI as a Single SPA component. To assist development, you may want to set your `JWT_POLICY` environment variable to `'fake'`. This will result in accepting any string as a valid and signed JWT. The username associated (the user's unique blockchain ID) will be the JWT string itself (so the link above turns into `/site/dev.html?slug=<product slug>&authToken=<user>`).
