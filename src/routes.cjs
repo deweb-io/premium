@@ -19,7 +19,7 @@ const parcelTemplate = fs.readFileSync('./site/premium.js.template', 'utf8');
 
 module.exports = async(fastify, _) => {
     // Setup CORS.
-    fastify.register(require('@fastify/cors'), {origin: 'http://localhost:3000'});
+    fastify.register(require('@fastify/cors'), {origin: '*'});
 
     // Configure swagger if needed.
     if(process.env.FASTIFY_SWAGGER) {
