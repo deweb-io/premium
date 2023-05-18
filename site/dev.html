@@ -9,17 +9,11 @@
     <div id="premium"></div>
     <script>
         // Load the Premium UI like a Core-UI and a boss.
-        const show = (slug, authToken) => {
+        const load = (rendererUrl, authToken) => {
             // Load premium.js and mount it as a SSPA package, with the `premium` div and the `authToken` as parameters.
-            requirejs([`/product/${slug}`], (premium) => {
+            requirejs([rendererUrl], (premium) => {
                 premium.mount({domElement: document.getElementById('premium'), authToken});
             });
-        }
-
-        // Allow auth token and slug to be passed in as a query parameter for easy testing.
-        const urlParams = new URLSearchParams(window.location.search);
-        if(urlParams.has('slug') && urlParams.has('authToken')) {
-            show(urlParams.get('slug'), urlParams.get('authToken'));
         }
     </script>
 </body>
